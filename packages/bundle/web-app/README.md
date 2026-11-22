@@ -7,8 +7,6 @@ kind: "package-bundle"
 
 English | [中文](README.zh.md)
 
-Desktop analytics follows the [product collection policy](../../client/product-analytics/README.md), including its live application setting. Web usage is excluded.
-
 Desktop analytics schedules partial batches every 30 seconds, with a 15-second exporter timeout and a 20-second processor timeout. Shutdown allows 2 seconds to drain, then cancels pending requests and retry waits so telemetry does not keep the Host alive. Pending events may be lost on exit.
 
 ## Summary
@@ -219,7 +217,6 @@ While resources and configuration stay unchanged, the built-in Office summary an
 
 <a id="known-limitations-and-deferred-work"></a>
 
-
 These limits tell you what to expect in unusual setups — a source checkout, SSH sessions, or strict networks. They are current package constraints, not a general browser comparison or a task backlog.
 
 - **The frontend must be built** — a source checkout needs `pnpm run build` first; startup stops with a build hint when the dist is missing, and there is no source-serving fallback.
@@ -239,5 +236,3 @@ These limits tell you what to expect in unusual setups — a source checkout, SS
 None.
 
 </details>
-
-The Web composition includes the account Remote controller and Account settings section.

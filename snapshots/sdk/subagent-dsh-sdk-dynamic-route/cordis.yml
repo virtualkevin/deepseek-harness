@@ -33,7 +33,6 @@
         provider: mock
         model: mock-routed
         env:
-          DSH_TELEMETRY_DISABLED: '1'
 
     - id: subagent-model-selection-settings
       name: '@deepseek-ai/dsh-tool-subagent/model-selection-settings'
@@ -58,10 +57,6 @@
       disabled: !!js process.env.DSH_SNAPSHOT !== 'record'
       config:
         maxTokensAsSuccess: true
-
-- id: session-log-deepseek
-  config:
-    enabled: false
 
 - insert:
     - id: await-external-subagents

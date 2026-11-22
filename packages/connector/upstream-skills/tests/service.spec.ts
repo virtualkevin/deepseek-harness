@@ -388,7 +388,7 @@ describe('register in a profile', () => {
     const dir = join(harness(), 'profiles', 'web')
     const profile: ProfileContext = {
       name: 'web', dir, patchPath: join(dir, 'cordis.patch.yml'), installAnchor: dir, cwd: home, home: harness(),
-      startedBundles: [], overlayPaths: [], telemetryDisabledEnv: undefined,
+      startedBundles: [], overlayPaths: [],
     }
     ctx.provide('profileContext', profile)
   })

@@ -126,19 +126,26 @@ describe('recorded-session corpus policy', () => {
   )
 
   it('bounds explicitly retained roles and requires a baseline/current majority', () => {
-    const retiredOffice = ['native', 'ptc'].map(mode => ({
-      key: `session/office-retired-${mode}`,
+    const retiredIntegrations = [
+      'session/office-retired-native',
+      'session/office-retired-ptc',
+      'session/web-search-account-billing',
+      'session/web-search-account-signout',
+      'sdk/account-provider-signout',
+    ].map(key => ({
+      key,
       selectedVersions: [SESSION_FORMAT_VERSION],
       retained: { version: SESSION_FORMAT_VERSION, coverage: ['retired-tools'] as const },
     }))
+    const majority = { ...current, selectedVersions: [...current.selectedVersions, SESSION_FORMAT_VERSION] }
     expect(assertSnapshotCorpusPolicy([
-      baseline, current,
-      { ...completeV0, selectedVersions: Array<number>(9).fill(0) }, ...adjacent, ...retiredOffice,
-    ]).retainedRoles).toBe(13)
+      baseline, majority,
+      { ...completeV0, selectedVersions: Array<number>(9).fill(0) }, ...adjacent, ...retiredIntegrations,
+    ]).retainedRoles).toBe(16)
     expect(() => assertSnapshotCorpusPolicy([
-      baseline, current,
-      { ...completeV0, selectedVersions: Array<number>(10).fill(0) }, ...adjacent, ...retiredOffice,
-    ])).toThrow('Session corpus retains 14 historical roles; maximum is 13')
+      baseline, majority,
+      { ...completeV0, selectedVersions: Array<number>(10).fill(0) }, ...adjacent, ...retiredIntegrations,
+    ])).toThrow('Session corpus retains 17 historical roles; maximum is 16')
     expect(() => assertSnapshotCorpusPolicy([
       { ...baseline, selectedVersions: [3] }, completeV0, ...adjacent,
     ])).toThrow(`Session corpus requires a baseline/current majority; baseline=1, current=0, retained=${1 + adjacent.length}`)

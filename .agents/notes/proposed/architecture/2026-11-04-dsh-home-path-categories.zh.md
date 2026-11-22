@@ -53,7 +53,7 @@ profile 目录内的文件，例如 `node_modules/`、`pnpm-lock.yaml`、`compat
 | `attachments/v1/` | `data` | [attachment-local](../../../../packages/attachment/attachment-local/README.zh.md) | 用户附件；Session 历史记录了它们的绝对路径 |
 | `dsh-runtimes/` | `data` | Desktop 离线运行时（[workspace-dependencies](../../../../packages/bundle/web-app/cordis.patch.yml)） | 已安装的软件，可能包含用户添加的内容 |
 | `liveshare/` | `data` | [liveshare](../../../../packages/experimental/liveshare/README.zh.md) 的所有者状态和凭据 | 存放管理令牌 |
-| `.anonymous-user-id` | `state` | [anonymous-user-id](../../../../packages/identity/anonymous-user-id/README.zh.md) | 丢失后只会生成新的 id |
+| `.anonymous-user-id` | `state` | [anonymous-user-id](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.3-alpha.1/%70ackages/identity/anonymous-user-id/README.md) | 丢失后只会生成新的 id |
 | `logs/` | `state` | CLI 启动失败报告 | 日志 |
 | `llm-deepseek/files-v3.json` | `state` | [llm-deepseek](../../../../packages/llm/llm-deepseek/README.zh.md) 上传索引 | 派生索引 |
 | `office-kit/outputs/` | `state` | [office-kit](../../../../packages/document/office-kit/README.zh.md) | 保留的转换输出，超过保留期后删除 |

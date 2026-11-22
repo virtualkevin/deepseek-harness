@@ -6,7 +6,6 @@
  * Export discipline:
  * packages/client/AGENTS.md.
  */
-import type {} from '@deepseek-ai/dsh-client-product-analytics/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { SyncedConfig } from '@deepseek-ai/dsh-client-config/types'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
@@ -70,7 +69,7 @@ export function refreshIfLoaded(controller: ModelsSettingsStore): void {
  * constrained; registration depends on each slot through `slots.inject()`.
  */
 export const inject = [
-  'slots', 'locale', 'remote', 'remote.credentials', 'remote.llm', 'remote.settings', 'remote.session',
+  'slots', 'locale', 'remote', 'remote.credentials', 'remote.llm', 'remote.settings',
   'configForms', 'settingsSchema',
 ]
 
@@ -106,7 +105,6 @@ export function apply(ctx: ClientContext, config: SyncedConfig<ModelsConfig>): v
     t,
   })
   const deepSeekOnboardingInjected = (): DeepSeekOnboardingInjected => ({
-    track: (name, attributes) => ctx.get('productAnalytics')?.track(name, attributes),
     controller,
     hooks: { models: controller.store, automatic },
     operations,
@@ -160,7 +158,6 @@ export function apply(ctx: ClientContext, config: SyncedConfig<ModelsConfig>): v
   ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
     name: 'settings.onboarding',
     id: 'deepseek-official',
-    children: { 'settings.models.sign-in': { kind: 'single', scope: 'root' } },
     order: 0,
     inject: deepSeekOnboardingInjected,
   }, DeepSeekOnboardingDialog))

@@ -37,7 +37,7 @@ kind: "package-reference"
 
 ### 最小组合
 
-挂载服务与至少一个适配器，然后在每个请求中按名称选择提供方。下面的 DeepSeek 路由还要求挂载 [`dsh-deepseek-auth`](../../account/deepseek-auth/README.zh.md)，由它释放 API 密钥：
+挂载服务与至少一个适配器，然后在每个请求中按名称选择提供方。下面的 DeepSeek 路由还要求挂载 [`dsh-deepseek-auth`](../../credentials/deepseek-auth/README.zh.md)，由它释放 API 密钥：
 
 ```yaml
 - name: '@deepseek-ai/dsh-llm'

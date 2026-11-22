@@ -1,9 +1,10 @@
 /** SDK fixture for native registry changes and unmodified DeepSeek request observation. */
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { appendFile } from 'node:fs/promises'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 
 export const name = 'sdk-dynamic-tool-cache-fixture'
-export const inject = ['tools', 'systemPrompt', 'deepseekLlmApiExtensions']
+export const inject = ['tools', 'systemPrompt', 'llm']
 
 /** Observe each request and let the model add or remove a scoped tool. */
 export function apply(ctx, config) {
@@ -15,15 +16,39 @@ export function apply(ctx, config) {
       state.step = event.data.step
     }
   })
-  ctx.effect(() => ctx.deepseekLlmApiExtensions.register('dynamic_tool_cache_observer', {
-    async prepare(request) {
-      if (request.purpose !== undefined) return undefined
-      const state = states.get(request.sessionId)
-      if (state === undefined) throw new Error('The SDK request has no observed agent.')
-      await appendFile(config.evidencePath, `${JSON.stringify({ ...state, body: request.body })}\n`)
-      return undefined
-    },
-  }))
+  const observation = new AsyncLocalStorage()
+  ctx.effect(() => {
+    const fetch = globalThis.fetch
+    const observeFetch = async (input, init) => {
+      const state = observation.getStore()
+      if (state !== undefined && typeof input === 'string' && new URL(input).pathname.endsWith('/messages')
+          && typeof init?.body === 'string') {
+        await appendFile(config.evidencePath, `${JSON.stringify({ ...state, body: JSON.parse(init.body) })}\n`)
+      }
+      return fetch(input, init)
+    }
+    globalThis.fetch = observeFetch
+    return () => {
+      if (globalThis.fetch === observeFetch) globalThis.fetch = fetch
+    }
+  })
+  ctx.on('llm/stream', (request, next) => {
+    const stream = next()
+    const state = request.purpose === undefined ? states.get(request.sessionId) : undefined
+    if (state === undefined) return stream
+    return (async function* () {
+      const iterator = stream[Symbol.asyncIterator]()
+      try {
+        while (true) {
+          const result = await observation.run(state, () => iterator.next())
+          if (result.done) return
+          yield result.value
+        }
+      } finally {
+        await iterator.return?.()
+      }
+    })()
+  })
   ctx.on('agent/created', ({ agent }) => {
     const scope = agent.ctx
     const state = { stage: 'initial', turn: 0, step: 0 }

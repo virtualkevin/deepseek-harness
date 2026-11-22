@@ -32,7 +32,6 @@ export async function prepareDesktopHome(root: string): Promise<{ home: string; 
   const home = join(root, 'home')
   mkdirSync(home)
   vi.stubEnv('DSH_HOME', home)
-  vi.stubEnv('DSH_TELEMETRY_MODE', 'DISABLED')
   const project = prepareDevelopmentProject({
     projectDir: join(root, 'project'),
     cliDir: join(repository, 'apps/cli'),

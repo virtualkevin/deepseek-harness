@@ -3,6 +3,9 @@ scenario: account-provider-signout
 profile: sdk
 composition: sdk-account-provider-signout
 recording: authored
+sessionFormat:
+  version: 4
+  coverage: [retired-tools]
 header:
   class: sdk-account-provider-signout
   pin: true

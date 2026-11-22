@@ -4,8 +4,6 @@ import type {
   SystemPromptUpdate, ToolUpdate,
 } from '@deepseek-ai/dsh-llm'
 import type { AttachmentStore, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import type { AnonymousUserId } from '@deepseek-ai/dsh-anonymous-user-id'
-import type { DeepSeekLlmApiExtensionRequest, PreparedDeepSeekLlmApiExtensions } from '@deepseek-ai/dsh-deepseek-llm-api-extensions'
 import type { DeepSeekFileStore, DeepSeekFilePolicy } from './file-store.ts'
 
 /** One optional model entry advertised by the direct-fetch adapter. */
@@ -84,34 +82,16 @@ export interface DeepSeekConnectionOptions {
   retryPolicy: ResolvedRetryPolicy
 }
 
-/**
- * Authentication the provider plugin releases for one request and its file operations, with the request-failure
- * classification bound to that credential.
- */
+/** Authentication released for one request and its file operations. */
 export interface DeepSeekRequestAuth {
   /** Request headers carrying the credential. */
   readonly headers: Readonly<Record<string, string>>
-  /**
-   * Aborts when the owner withdraws the credential while the request may carry it, as an account sign-out does. It
-   * ends the request and its file operations as the caller's cancellation does. Absent for credentials that are
-   * never withdrawn.
-   */
-  readonly revoked?: AbortSignal
-  /**
-   * Classify a failure using the captured credential; callback failure preserves the original error. The end a
-   * withdrawn credential causes arrives here too, for the provider plugin to name.
-   */
-  onRequestError?: (error: unknown) => Promise<unknown>
 }
 
 /** Constructor options for {@link DeepSeekAdapter}: the operation-local resolution hooks the plugin owns. */
 export interface DeepSeekAdapterOptions<Connection extends DeepSeekConnectionOptions = DeepSeekConnectionOptions> {
   /** Report unusable native Messages replay metadata without exposing content or signatures. */
   onReplayDegrade?: (detail: { provider: string; model: string; reason: string }) => void
-  /** Report extension fields omitted from one request because the merged request failed to serialize. */
-  onExtensionsOmitted?: (detail: { provider: string; model: string; fields: readonly string[]; error: unknown }) => void
-  /** Report an extension acceptance failure after HTTP 2xx; the request continues. */
-  onExtensionsUnaccepted?: (detail: { provider: string; model: string; error: unknown }) => void
   /** Provider label for selectors; omission uses the protocol family name. */
   providerName?: string
   /** Provider-owned catalog availability; omission exposes no discovery entries. */
@@ -137,16 +117,12 @@ export interface DeepSeekAdapterOptions<Connection extends DeepSeekConnectionOpt
    * credential for the route's own endpoint; omission reports `MISSING_CREDENTIAL`.
    */
   missingCredential?: (connection: Connection, provider: string) => LlmError
-  /** Resolve the harness-home anonymous id shared with telemetry and feedback. */
-  resolveUserId: () => AnonymousUserId
   /** Resolve the current durable attachment service; absence rejects image input. */
   resolveAttachments?: () => AttachmentStore | undefined
   /** Bridge one attachment reference into the current model-tool execution world. */
   resolveImageAccess?: (attachments: AttachmentStore, ref: ImageAttachmentRef) => ImageAttachmentAccess | undefined
   /** Resolve the process-wide upload reuse store. */
   resolveFiles?: () => DeepSeekFileStore
-  /** Prepare the official API's plugin-contributed top-level fields for one exact wire request. */
-  prepareExtensions: (request: DeepSeekLlmApiExtensionRequest) => Promise<PreparedDeepSeekLlmApiExtensions>
 }
 
 

@@ -348,7 +348,7 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
       symlinkSync(join(repoRoot, 'apps/cli/lib'), alias, 'junction')
       const { stdout } = await execa(process.execPath, [
         '--preserve-symlinks-main', join(alias, 'bin.js'), '--version',
-      ], { timeout: SPAWN_TIMEOUT_MS, env: { DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' } })
+      ], { timeout: SPAWN_TIMEOUT_MS, env: { DSH_HOME: home } })
       expect(stdout).toBe(cliVersion)
     } finally {
       rmSync(home, { recursive: true, force: true })
@@ -377,7 +377,6 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
     try {
       const web = await runBuiltBin(['--profile', 'web', '--help'], {
         DSH_HOME: home,
-        DSH_TELEMETRY_DISABLED: '1',
       })
       expect(web.code).toBe(0)
       expect(web.stderr).toBe('')
@@ -388,7 +387,6 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
 
       const wildcardHost = await runBuiltBin(['web', '--host', '0.0.0.0'], {
         DSH_HOME: home,
-        DSH_TELEMETRY_DISABLED: '1',
       })
       expect(wildcardHost.code).toBe(1)
       expect(wildcardHost.stdout).toBe('')
@@ -396,7 +394,6 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
 
       const headlessHelp = await runBuiltBin(['headless', '--help'], {
         DSH_HOME: home,
-        DSH_TELEMETRY_DISABLED: '1',
       })
       expect(headlessHelp.code).toBe(0)
       expect(headlessHelp.stderr).toBe('')
@@ -404,7 +401,6 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
 
       const sdkHelp = await runBuiltBin(['sdk', '--help'], {
         DSH_HOME: home,
-        DSH_TELEMETRY_DISABLED: '1',
       })
       expect(sdkHelp.code).toBe(0)
       expect(sdkHelp.stderr).toBe('')
@@ -412,7 +408,6 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
 
       const acpHelp = await runBuiltBin(['acp', '--help'], {
         DSH_HOME: home,
-        DSH_TELEMETRY_DISABLED: '1',
       })
       expect(acpHelp.code).toBe(0)
       expect(acpHelp.stderr).toBe('')
@@ -420,7 +415,6 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
 
       const missingTask = await runBuiltBin(['--profile', 'headless'], {
         DSH_HOME: home,
-        DSH_TELEMETRY_DISABLED: '1',
       })
       expect(missingTask.code).toBe(1)
       expect(missingTask.stderr).toContain('a task is required')
@@ -441,7 +435,6 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
     try {
       const result = await runBuiltBin(['--profile', 'sdk', '--patch', patch], {
         DSH_HOME: home,
-        DSH_TELEMETRY_DISABLED: '1',
         DEEPSEEK_API_KEY: 'built-sdk-startup-failure-no-call',
       }, home)
       expect(result.code).toBe(0)
@@ -477,7 +470,6 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
       env: {
         ...process.env,
         DSH_HOME: home,
-        DSH_TELEMETRY_DISABLED: '1',
         DEEPSEEK_API_KEY: 'built-sdk-profile-no-call',
         DEEPSEEK_BASE_URL: server.baseURL,
       },
@@ -545,7 +537,6 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
       env: {
         ...process.env,
         DSH_HOME: home,
-        DSH_TELEMETRY_DISABLED: '1',
         DEEPSEEK_API_KEY: apiKey,
         DEEPSEEK_BASE_URL: server.baseURL,
         DSH_PERMISSION_MODE: 'danger-full-access',
@@ -625,7 +616,6 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
     try {
       const result = await runBuiltBin(['--profile', 'headless', 'answer', 'from', 'the', 'published', 'entry'], {
         DSH_HOME: home,
-        DSH_TELEMETRY_DISABLED: '1',
         DEEPSEEK_API_KEY: apiKey,
         DEEPSEEK_BASE_URL: server.baseURL,
       })
@@ -688,7 +678,7 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
     try {
       const created = await runBuiltBin(
         ['rescue', '--from-default-profile', 'web', '--help'],
-        { DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' },
+        { DSH_HOME: home },
       )
       expect(created.code).toBe(0)
       expect(created.stderr).toBe('')
@@ -709,7 +699,7 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
       writeFileSync(join(dir, 'cordis.patch.yml'), '- id: local-change\n  disabled: true\n')
       const repeated = await runBuiltBin(
         ['rescue', '--from-default-profile', 'web', '--help'],
-        { DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' },
+        { DSH_HOME: home },
       )
       expect(repeated.code).toBe(0)
       expect(repeated.stderr).toBe('')
@@ -717,7 +707,7 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
 
       const reopened = await runBuiltBin(
         ['rescue', '--help'],
-        { DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' },
+        { DSH_HOME: home },
       )
       expect(reopened.code).toBe(0)
       expect(reopened.stderr).toBe('')
@@ -732,7 +722,7 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
     try {
       const failed = await runBuiltBin(
         ['--profile', 'rescue', '--from-default-profile', 'web', '--port', 'not-a-number'],
-        { DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' },
+        { DSH_HOME: home },
       )
       expect(failed.code).toBe(1)
       expect(failed.stderr).toContain('--port must be a number')
@@ -740,7 +730,7 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
 
       const retried = await runBuiltBin(
         ['rescue', '--help'],
-        { DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' },
+        { DSH_HOME: home },
       )
       expect(retried.code).toBe(0)
       expect(retried.stderr).toBe('')
@@ -766,7 +756,6 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
         ['--profile', 'environment-probe'],
         {
           DSH_HOME: home,
-          DSH_TELEMETRY_DISABLED: '1',
           DEEPSEEK_API_KEY: undefined,
           DEEPSEEK_BASE_URL: server.baseURL,
         },
@@ -797,7 +786,6 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
         DSH_HOME: home,
         DSH_BROWSER_OPEN_TEST_EXIT_ON_READY: '1',
         DEEPSEEK_API_KEY: 'keyless-invalid-config',
-        DSH_TELEMETRY_DISABLED: '1',
         NODE_OPTIONS: `--import=${webReadyExitHook}`,
       })
       expect(result.code, result.stderr).toBe(0)
@@ -1260,9 +1248,6 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
       expect(rows.map(row => [row.id, row.name])).toEqual([
         ['sdk-app-startup', '@deepseek-ai/dsh-sdk-app'],
         ['sdk-jsonrpc-server', '@deepseek-ai/dsh-sdk-jsonrpc-server'],
-        ['deepseek-llm-api-extensions', '@deepseek-ai/dsh-deepseek-llm-api-extensions'],
-        ['session-log-deepseek', '@deepseek-ai/dsh-session-log-deepseek'],
-        ['plugin-package-inventory-deepseek', '@deepseek-ai/dsh-plugin-package-inventory-deepseek'],
         ['deepseek-auth', '@deepseek-ai/dsh-deepseek-auth'],
         ['llm-deepseek', '@deepseek-ai/dsh-llm-deepseek-api-key'],
         ['sandbox', '@deepseek-ai/dsh-sandbox-local'],

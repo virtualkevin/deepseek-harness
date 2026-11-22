@@ -215,11 +215,11 @@ describe('requestModelListing', () => {
       headers = request.headers
       response.end(JSON.stringify(LISTING))
     })
-    const listing = await requestModelListing(url, { 'x-dsh-auth-token': 'fixture-token' }, AbortSignal.timeout(5_000))
+    const listing = await requestModelListing(url, { 'x-api-key': 'fixture-token' }, AbortSignal.timeout(5_000))
     expect(listing.entries.map(entry => entry.id)).toEqual(['deepseek-flash', 'deepseek-v4-pro'])
     expect(headers).toMatchObject({
       'accept': 'application/json',
-      'x-dsh-auth-token': 'fixture-token',
+      'x-api-key': 'fixture-token',
       'user-agent': expect.stringContaining(`${APP_IDENTITY.product}/${APP_IDENTITY.version}`) as string,
     })
   })

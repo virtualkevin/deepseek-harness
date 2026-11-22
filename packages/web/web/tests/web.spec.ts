@@ -209,12 +209,12 @@ describe('WebRuntime execution resolution', () => {
       return web
     }
 
-    it.each(['deepseek-official', 'deepseek-account'])('runs Messages search for a model request on the %s route', async (llmProvider) => {
+    it('runs Messages search for a model request on the DeepSeek API-key route', async () => {
       const web = await mountDeepSeek()
-      await expect(web.search({ query: 'q', llmProvider })).resolves.toMatchObject({ content: 'messages' })
+      await expect(web.search({ query: 'q', llmProvider: 'deepseek-official' })).resolves.toMatchObject({ content: 'messages' })
     })
 
-    it.each([['another route', 'openai'], ['a search that serves no model request', undefined]])(
+    it.each([['another route', 'openai'], ['the retired account route', 'deepseek-account'], ['a search that serves no model request', undefined]])(
       'runs the Search API for %s', async (_label, llmProvider) => {
         const web = await mountDeepSeek()
         await expect(web.search({ query: 'q', ...llmProvider === undefined ? {} : { llmProvider } })).resolves.toMatchObject({ content: 'api' })

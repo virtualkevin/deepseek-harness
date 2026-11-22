@@ -53,7 +53,7 @@ These entries have no user-facing convention. Each row names the category it bel
 | `attachments/v1/` | `data` | [attachment-local](../../../../packages/attachment/attachment-local/README.md) | User attachments; Session history records their absolute paths |
 | `dsh-runtimes/` | `data` | Desktop offline runtimes ([workspace-dependencies](../../../../packages/bundle/web-app/cordis.patch.yml)) | Installed software that may hold user additions |
 | `liveshare/` | `data` | [liveshare](../../../../packages/experimental/liveshare/README.md) owner state and credential | Holds management tokens |
-| `.anonymous-user-id` | `state` | [anonymous-user-id](../../../../packages/identity/anonymous-user-id/README.md) | Losing it only issues a new id |
+| `.anonymous-user-id` | `state` | [anonymous-user-id](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.3-alpha.1/%70ackages/identity/anonymous-user-id/README.md) | Losing it only issues a new id |
 | `logs/` | `state` | CLI startup failure reports | Logs |
 | `llm-deepseek/files-v3.json` | `state` | [llm-deepseek](../../../../packages/llm/llm-deepseek/README.md) upload index | Derived index |
 | `office-kit/outputs/` | `state` | [office-kit](../../../../packages/document/office-kit/README.md) | Retained conversion outputs removed after their retention period |

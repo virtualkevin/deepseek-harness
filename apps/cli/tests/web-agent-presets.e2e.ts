@@ -124,7 +124,7 @@ async function bootWeb(
     { id: 'session-persistence-jsonl', config: { root: join(profileHome, 'sessions') } },
     { id: 'attachment-local', config: { dshHome: profileHome } },
     // Host rows with side effects outside this process: a bound port, a served
-    // asset tree, a telemetry exporter. `api-gateway` and `directory-picker`
+    // asset tree. `api-gateway` and `directory-picker`
     // stay ENABLED on purpose — the api-proxy is the host row that injects
     // `subagents`, `workspace`, and the rest of the agent plane, so disabling
     // it would hide exactly the breakage this file exists to catch: a service
@@ -138,9 +138,6 @@ async function bootWeb(
     // and the URL prompt line — surface glue, not anything that decides an
     // agent's capabilities, which is all this file asserts.
     { id: 'web-runtime', disabled: true },
-    { id: 'session-telemetry-otel', disabled: true },
-    { id: 'desktop-product-telemetry', disabled: true },
-    { id: 'product-analytics', disabled: true },
     // A deployment-level skill on the host registry's GLOBAL layer — the same
     // registration shape a repository plugin's skill root uses. The layered
     // skills test below proves it reaches preset-composed agents.
@@ -221,7 +218,7 @@ async function bootWeb(
     bootCtx.provide('profileContext', { name: surface, dir: profileDir, patchPath: profile.patchPath,
       installAnchor: INSTALL_ANCHOR, home, cwd: home,
       startedBundles: profileBundles ?? ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'],
-      overlayPaths: [], telemetryDisabledEnv: '1' })
+      overlayPaths: [] })
     await bootCtx.plugin(PluginPackages, { resolution })
     bootCtx.provide('connection', {
       fetch: { register: () => () => {} },

@@ -73,14 +73,14 @@ export class DeepSeekSearchApiProvider implements WebSearchProvider {
   private readonly starts: number[] = []
   /** Picker description: what this provider suits and what it costs or cannot do. */
   readonly description: NonNullable<WebSearchProvider['description']> = {
-    en: 'Incurs charges, paid by the account or API key chosen under Billing.',
-    zh: '会产生费用，由「计费方式」选定的账号或 API Key 支付。',
-    ja: '料金が発生し、「課金方法」で選んだアカウントまたは API キーに請求されます。',
-    es: 'Genera cargos, que paga la cuenta o la clave de API elegida en Facturación.',
-    fr: 'Entraîne des frais, payés par le compte ou la clé API choisi dans Facturation.',
-    de: 'Verursacht Kosten, die das unter Abrechnung gewählte Konto oder der API-Schlüssel trägt.',
-    ru: 'Услуга платная: оплата идёт с аккаунта или ключа API, выбранного в разделе «Оплата».',
-    pt: 'Gera cobranças, pagas pela conta ou chave de API escolhida em Cobrança.',
+    en: 'Incurs charges and requires a DeepSeek API key.',
+    zh: '会产生费用，需要 DeepSeek API Key。',
+    ja: '料金が発生し、DeepSeek API キーが必要です。',
+    es: 'Genera cargos y requiere una clave de API de DeepSeek.',
+    fr: 'Entraîne des frais et nécessite une clé API DeepSeek.',
+    de: 'Verursacht Kosten und erfordert einen DeepSeek-API-Schlüssel.',
+    ru: 'Услуга платная и требует ключ API DeepSeek.',
+    pt: 'Gera cobranças e requer uma chave de API da DeepSeek.',
   }
 
   /**

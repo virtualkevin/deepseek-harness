@@ -9,9 +9,9 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Provide the shared DeepSeek Messages transport, request configuration, and model capabilities. Compose [API-key](../llm-deepseek-api-key/README.md) or [account](../llm-deepseek-account/README.md) plugins for authentication, model discovery, and provider registration. Valid settings changes affect subsequent calls while in-flight calls retain their configuration. This package can run beside the [pi-ai adapter](../llm-pi-ai/README.md).
+Provide the shared DeepSeek Messages transport, request configuration, and model capabilities. Compose the [API-key](../llm-deepseek-api-key/README.md) plugin for authentication, model discovery, and provider registration. Valid settings changes affect subsequent calls while in-flight calls retain their configuration. This package can run beside the [pi-ai adapter](../llm-pi-ai/README.md).
 
-`resolveAuth(connection, endpoint)` returns the credential one request to `endpoint` carries: its headers, an optional failure callback, and an optional `revoked` signal, or `undefined` when none is configured. Messages and Files send those headers without selecting a credential mode. Upload reuse is isolated by endpoint and a hash of the authentication headers; raw credentials are not persisted.
+`resolveAuth(connection, endpoint)` returns the credential one request to `endpoint` carries: its headers, or `undefined` when none is configured. Messages and Files send those headers without selecting a credential mode. Upload reuse is isolated by endpoint and a hash of the authentication headers; raw credentials are not persisted.
 
 ## Table of Contents
 
@@ -88,13 +88,11 @@ The official root is `https://api.deepseek.com/anthropic`. An explicit `baseURL`
 Messages sends text, thinking, tool calls, and tool results as content blocks, reasoning effort as `output_config.effort`, and images as Files references or inline base64. Models declaring `systemPromptUpdate: in-history` retain the initial top-level system and send new system additions after their corresponding user/tool-result turn; undeclared models concatenate all surviving system messages into the top-level system. Replay metadata preserves the model and thinking signatures. Invalid replay metadata emits a warning and omits signatures while retaining text and tool history. Model entries may declare `toolUpdate: addition-only` or `in-history`; the default `deepseek-flash` entry declares `addition-only`. Projected developer tool updates become system-role `tool_addition` and `tool_removal` blocks referencing declared names, and deferred declarations carry `defer_loading`. Requests containing those blocks send the `mid-conversation-tool-changes-2026-07-01` beta header. Messages omits empty assistant text blocks and skips assistant messages left without content, including saved history from other protocols. The stored Session content remains intact. System text blocks are trimmed, empty blocks are omitted, and blocks are joined with blank lines when the adapter renders a system string.
 
 <a id="account-credentials"></a>
-### Account credentials
+### API key credentials
 
-`deepseek-official` resolves only its configured API-key reference. `deepseek-account` resolves only the stored grant from the [account service](../../account/deepseek-account/README.md), whose allowed `inferenceOrigin` defaults to `https://api.deepseek.com`. Neither route falls back to the other. Signing out removes the account grant and preserves API keys.
+Messages and Files requests send the API key in `x-api-key` and reject redirects. Provider plugins use [`ctx.deepseekAuth`](../../credentials/deepseek-auth/README.md) to resolve credentials for the destination.
 
-Messages and Files requests send account tokens as `x-dsh-auth-token` without a Bearer prefix; API keys use `x-api-key`. Neither credential mode follows redirects. The account route owns HTTP 401 classification and the account service the credential invalidation; the transport passes failures to the credential's callback.
-
-Provider plugins supply credentials through two adapter hooks. `resolveAuth(connection, endpoint)` returns the credential one request to `endpoint` carries: the headers the Messages, Files, and listing requests send, an optional failure callback, and an optional `revoked` signal, or `undefined` when none is configured. The signal ends the model request and its file operations when the credential's owner withdraws it, and the failure callback names that end. `missingCredential(connection, provider)` names the failure of a request without one; the default is `MISSING_CREDENTIAL`. The plugins take both the API key and the account sign-in from [`ctx.deepseekAuth`](../../account/deepseek-auth/README.md); this transport reads no credential.
+`resolveAuth(connection, endpoint)` returns request headers or `undefined` when no key is configured. `missingCredential(connection, provider)` supplies the error for a missing credential. The default is `MISSING_CREDENTIAL`.
 
 ### Streaming with thinking and images
 
@@ -114,19 +112,15 @@ Files mode bounds retained request versions by `maxRequestFilesBytes` and `maxIm
 
 Connection options are captured from volatile Config references once per operation. Config validation rejects invalid candidates before form persistence. Credentials resolve from the same snapshot as the endpoint, image and Files policies, and idle budget. Attachment services resolve at request time.
 
-### Provider-specific request fields
-
-When `ctx.deepseekLlmApiExtensions` is present, the adapter prepares its registered top-level fields from the exact serialized base request before `fetch`. The registry omits a field whose preparation fails, and field collisions fail before HTTP; after a 2xx response, the adapter accepts every captured contribution before consuming SSE. Transport and non-2xx failures do not accept them. When the base request with its extension fields fails to serialize, the adapter sends the base request alone, skips acceptance so contributors resend their state later, and logs a warning naming the omitted fields. Serialization, acceptance, and replay-degradation warnings are logged once per route. Shipped compositions use this for the default-on incremental `dsh_session_log` field and the default-on active `dsh_plugin_packages` inventory; both stay outside model input.
-
 ### Failures and recovery
 
 Configuration accepts Messages only and has no `protocol` field. If resolution reports `protocol is not configurable`, remove `protocol` from the `config` of the `llm-deepseek` entry in `$DSH_HOME/profiles/<profile>/cordis.patch.yml` and from any overriding home patch or command-line overlay. Keep the intended `baseURL`, `apiKeyEnv`, and `models` fields. A stored configuration rejected by adapter validation makes subsequent requests fail until corrected; saving other fields in the Models card does not remove an unknown property. Edit the configuration file, then let the profile reload it through HMR or restart the profile if HMR is disabled.
 
 Successful Files responses must contain valid JSON. JSON decoding failures from upload, list, retrieve, and delete throw `INVALID_RESPONSE` with the operation and HTTP status in the message, the status in `LlmError.failure`, and the original parser error as `cause`. Body-read transport and cancellation errors retain their identity.
 
-Non-2xx responses fail with stable codes: `AUTH` (401/403), `QUOTA`, `RATE_LIMIT`, `CONTEXT_WINDOW_EXCEEDED`, `INVALID_REQUEST`, `SERVER`, and `HTTP_<status>` otherwise; pre-response transport failures throw `TRANSPORT`, caller aborts throw `ABORTED`, and stream-idle expiry throws `TIMEOUT`. A request ended by its credential's `revoked` signal fails as the provider's failure callback names it, and as `TRANSPORT` without one. A request-extension field collision, or a rejected preparation from a directly supplied `prepareExtensions`, fails with `REQUEST_EXTENSION` and appends the cause chain to the message; a post-2xx acceptance failure is logged and the response still streams. A normalized-image rejection names every plausible attachment and its durable position when the provider does not identify a file id. Stale-file rejection removes every named mapping (or every mapping used by the attempt) in one upload-index update and permits one replacement model request. Protocol violations throw `STREAM_CLOSED` or `MALFORMED_RESPONSE`, and a terminal `stop` with no content blocks becomes `EMPTY_RESPONSE`, which the default retry policy retries. When DeepSeek ends a stream with [`refusal`](https://api-docs.deepseek.com/guides/safety/#handle-refusals), the adapter reports billed usage and fails with `CONTENT_REFUSED`. The error includes the provider explanation when present, such as which images were blocked. The default retry policy ends the attempt, Web removes the streamed reply, and the Session retains it in `assistant/attempt` outside model history. An input rejected before streaming arrives as HTTP 400 and fails with `INVALID_REQUEST`. A request on the official route without an API key fails with `MISSING_CREDENTIAL`, and a malformed credential fails with `INVALID_CREDENTIAL` naming the reference to fix — never any part of the key.
+Non-2xx responses fail with stable codes: `AUTH` (401/403), `QUOTA`, `RATE_LIMIT`, `CONTEXT_WINDOW_EXCEEDED`, `INVALID_REQUEST`, `SERVER`, and `HTTP_<status>` otherwise; pre-response transport failures throw `TRANSPORT`, caller aborts throw `ABORTED`, and stream-idle expiry throws `TIMEOUT`. A normalized-image rejection names every plausible attachment and its durable position when the provider does not identify a file id. Stale-file rejection removes every named mapping (or every mapping used by the attempt) in one upload-index update and permits one replacement model request. Protocol violations throw `STREAM_CLOSED` or `MALFORMED_RESPONSE`, and a terminal `stop` with no content blocks becomes `EMPTY_RESPONSE`, which the default retry policy retries. When DeepSeek ends a stream with [`refusal`](https://api-docs.deepseek.com/guides/safety/#handle-refusals), the adapter reports billed usage and fails with `CONTENT_REFUSED`. The error includes the provider explanation when present, such as which images were blocked. The default retry policy ends the attempt, Web removes the streamed reply, and the Session retains it in `assistant/attempt` outside model history. An input rejected before streaming arrives as HTTP 400 and fails with `INVALID_REQUEST`. A request on the official route without an API key fails with `MISSING_CREDENTIAL`, and a malformed credential fails with `INVALID_CREDENTIAL` naming the reference to fix — never any part of the key.
 
-Provider plugins own catalog availability. While its API key resolves, the API-key route serves its configured `models`, or the official model listing while `models` is the built-in catalog on the official endpoint; the account route serves its account listing while signed in (see the [API-key](../llm-deepseek-api-key/README.md) and [account](../llm-deepseek-account/README.md) providers). The transport supplies the bundled catalog, the catalog-entry field schemas, and capability resolution, plus the listing machinery both routes share: `requestModelListing`, the credential-scoped `ModelListingCache` (owned by `createModelListingCache` for automatic refresh, notifications, and plugin cleanup), and `resolveListedCatalog` with its client-version gate, listed badges, and `refuseListedModel`; `catalogModelInfo` attaches a listed badge to the advertised entry. Badge text rejects controls, Unicode line separators, bidi controls, and strings made only of whitespace or default-ignorable characters; joined emoji remain valid. A provider may also supply `connect(signal)`, which resolves the connection for exact-model lookups and prepared calls after provider-owned work such as a catalog load, and `admit(connection, model)`, which refuses a model before network I/O.
+Provider plugins own catalog availability. While its API key resolves, the API-key route serves its configured `models`, or the official model listing while `models` is the built-in catalog on the official endpoint. The transport supplies the bundled catalog, the catalog-entry field schemas, and capability resolution, plus the listing machinery: `requestModelListing`, the credential-scoped `ModelListingCache` (owned by `createModelListingCache` for automatic refresh, notifications, and plugin cleanup), and `resolveListedCatalog` with its client-version gate, listed badges, and `refuseListedModel`; `catalogModelInfo` attaches a listed badge to the advertised entry. Badge text rejects controls, Unicode line separators, bidi controls, and strings made only of whitespace or default-ignorable characters; joined emoji remain valid. A provider may also supply `connect(signal)`, which resolves the connection for exact-model lookups and prepared calls after provider-owned work such as a catalog load, and `admit(connection, model)`, which refuses a model before network I/O.
 
 -----
 
@@ -148,7 +142,7 @@ The plugin is built on one explicit resolve step and one registration fact. `res
 
 ### Wire flow
 
-One `stream()` call normally makes one model request: resolve deterministic request images, prefer Files ids, prepare any registered top-level request extensions, fetch from the resolved `baseURL`, accept extension transactions after HTTP 2xx, and translate the SSE stream into the harness protocol. File-resolution failure makes the first request inline; a provider stale-file response permits one replacement attempt, also inline if replacement resolution fails. Every model and Files call carries shared attribution. Model requests also carry the stable anonymous user id outside model input, plus a session id when present. Reasoning history is serialized back when required, and cache accounting maps DeepSeek's cache-hit metrics into harness usage.
+One `stream()` call normally makes one model request: resolve deterministic request images, prefer Files ids, fetch from the resolved `baseURL`, and translate the SSE stream into the harness protocol. File-resolution failure makes the first request inline; a provider stale-file response permits one replacement attempt, also inline if replacement resolution fails. Every model and Files call carries shared attribution. Reasoning history is serialized back when required, and cache accounting maps DeepSeek's cache-hit metrics into harness usage.
 
 </details>
 
@@ -163,9 +157,6 @@ Read these pages when the package-level contract is not enough. They move from t
 - [llm-pi-ai adapter](../llm-pi-ai/README.md) — the library-backed twin serving other providers and gateways.
 - [LLM streaming subsystem](../../../docs/subsystems/llm-streaming.md) — the `StreamChunk` protocol and adapter contract.
 - [llm-retry](../llm-retry/README.md) — the retry executor that applies this adapter's `retryPolicy`.
-- [DeepSeek request extensions](../deepseek-llm-api-extensions/README.md) — lifecycle and acceptance semantics for provider-specific top-level fields.
-- [Session-log upload](../../session/session-log-deepseek/README.md) — the default-on incremental `dsh_session_log` contribution.
-- [Plugin package inventory](../plugin-package-inventory-deepseek/README.md) — the default-on `dsh_plugin_packages` contribution.
 - [Twin LLM adapters](../../../.agents/notes/implemented/architecture/2026-06-13-twin-llm-adapters.md) — why DeepSeek ships two structurally different adapters.
 - [Mandatory app attribution headers](../../../docs/subsystems/llm-streaming.md) — the identity every provider request carries.
 
@@ -204,9 +195,7 @@ Loop-retained response blocks append to the next request and preserve its earlie
 
 ## Known Limitations and Deferred Work
 
-
 <a id="known-limitations-and-deferred-work"></a>
-
 
 These limits define where the adapter stops and future work begins. They are current package constraints, not a general DeepSeek comparison or a task backlog.
 
@@ -223,4 +212,4 @@ These limits define where the adapter stops and future work begins. They are cur
 
 None.
 
-`deepseek-official` uses only its configured API-key reference; `deepseek-account` uses only the stored DSH grant for the account provider’s allowed inference origin. Both routes share the Messages transport with independently configured model and file settings. Missing or ineligible account credentials reject the request with a sign-in prompt; neither route falls back to the other. Chat and Files requests reject redirects. The account route plugin owns sign-out cancellation using running Agents’ logged request contexts, including tool execution; the transport receives the existing request abort signal and ends a request whose credential is withdrawn.
+`deepseek-official` uses its API key for the configured origin. Messages and Files requests reject redirects.

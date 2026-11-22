@@ -90,9 +90,6 @@
       "path": "../../host/plugin-inventory"
     },
     {
-      "path": "../../account/deepseek-account"
-    },
-    {
       "path": "../../web/web"
     }
   ]

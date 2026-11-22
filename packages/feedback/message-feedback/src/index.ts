@@ -14,7 +14,7 @@ import { SessionSeq } from '@deepseek-ai/dsh-session/types'
 import { deriveEventMessage, isAppendSurfaceEvent } from '@deepseek-ai/dsh-session/surface'
 import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-session'
-import type { SessionInspection } from '@deepseek-ai/dsh-session-persistence'
+import type {} from '@deepseek-ai/dsh-session-persistence'
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
 import type {
   MessageFeedbackDeleteRequest,
@@ -45,17 +45,6 @@ export interface Config {
 declare module '@deepseek-ai/cordis' {
   interface Context {
     messageFeedback: MessageFeedbackService
-  }
-  interface Events {
-    /**
-     * Observe a durable cold feedback mutation without publishing a live Session.
-     * Observers run before write ownership is released and must not await
-     * another message-feedback operation for this Session. The payload is borrowed
-     * read-only; deep-clone it before transferring ownership (for example, to Session.fromRestore).
-     * @param inspection - committed canonical prefix, including the feedback as its last event.
-     * @mode parallel
-     */
-    'feedback/committed'(inspection: SessionInspection): void
   }
 }
 
@@ -266,17 +255,6 @@ export class MessageFeedbackService extends TypertRemoteService {
           : { ...event, seq: SessionSeq(events.length), time: Date.now() }
         if (entry !== undefined) await handle.append([entry])
         await handle.flush()
-        if (entry !== undefined) {
-          try {
-            await this.ctx.parallel('feedback/committed', {
-              meta: handle.header,
-              inheritedEventCount: handle.inheritedEventCount,
-              events: [...events, entry],
-            })
-          } catch (error) {
-            this.ctx.logger.warn('message-feedback: committed feedback observer failed', error)
-          }
-        }
       })
     } finally {
       await handle.close()

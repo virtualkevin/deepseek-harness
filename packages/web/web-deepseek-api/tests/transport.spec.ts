@@ -7,7 +7,6 @@ import {
   dispatchDeepSeekWeb, hasDeepSeekWebCredential, isDeepSeekWebAuthReady, type DeepSeekWebAuthSource,
 } from '../src/transport.ts'
 const API_BASE = 'https://api.deepseek.test/v1/tools'
-const ACCOUNT_BASE = 'https://account.deepseek.test/v1/tools'
 const KEY_REF = credentialRef('TEST_KEY')
 /** The presence check and the read of one referenced key. */
 interface KeyRead {
@@ -20,40 +19,18 @@ function keyRef(resolve: () => Promise<string | undefined>, configured: () => Pr
 }
 /**
  * An API-key candidate bound to the Search endpoint under {@link API_BASE}, as `ctx.deepseekAuth` binds one: it
- * releases the read key as a bearer token and releases nothing without a key. `revoked` is the withdrawal signal the
- * authorization carries, when given.
+ * releases the read key as a bearer token and releases nothing without a key.
  */
-function keySource(key: KeyRead = keyRef(async () => 'ds-key'), revoked?: AbortSignal): DeepSeekAuthCandidate {
+function keySource(key: KeyRead = keyRef(async () => 'ds-key')): DeepSeekAuthCandidate {
   const endpoint = `${API_BASE}/search`
   return {
     kind: 'api-key', endpoint, reference: KEY_REF, configured: key.configured,
     resolve: async () => {
       const value = await key.resolve()
       if (value === undefined) return undefined
-      return { kind: 'api-key', endpoint, reference: KEY_REF, headers: { authorization: `Bearer ${value}` }, ...revoked === undefined ? {} : { revoked } }
+      return { kind: 'api-key', endpoint, reference: KEY_REF, headers: { authorization: `Bearer ${value}` } }
     },
   }
-}
-/**
- * An account candidate bound to the Search endpoint under {@link ACCOUNT_BASE}, releasing `resolveToken(endpoint)` as
- * the token header; an empty token releases nothing. `rejectToken` observes each invalidated token, and its failure
- * rejects the invalidation, as an owner that does not contain its storage failures does. `revoked` is the sign-out
- * signal the authorization carries, when given.
- */
-function accountSource(
-  resolveToken: (endpoint: string) => Promise<string | undefined>, rejectToken: (token: string) => Promise<void> = async () => {},
-  revoked?: AbortSignal,
-): DeepSeekAuthCandidate {
-  const endpoint = `${ACCOUNT_BASE}/search`
-  const release = async () => {
-    const token = await resolveToken(endpoint)
-    if (token === undefined || token.length === 0) return undefined
-    return {
-      kind: 'account' as const, endpoint, headers: { 'x-dsh-auth-token': token }, reject: () => rejectToken(token),
-      ...revoked === undefined ? {} : { revoked },
-    }
-  }
-  return { kind: 'account', endpoint, configured: async () => (await release()) !== undefined, resolve: release }
 }
 const misconfigured: DeepSeekWebAuthSource = { kind: 'misconfigured', message: 'route settings do not resolve' }
 /** Search once with the given sources, in order. */
@@ -87,55 +64,23 @@ function captureFetch(response: () => Response = () => jsonResponse({})) {
 }
 afterEach(() => vi.unstubAllGlobals())
 
-describe('DeepSeek web credential order', () => {
-  it('sends only the account token to its own base when the account comes first, without reading the key', async () => {
+describe('DeepSeek web API credentials', () => {
+  it('sends the key only to its bound endpoint', async () => {
     const { sent } = captureFetch()
-    const resolveToken = vi.fn(async (_endpoint: string) => 'account-token')
-    const resolve = vi.fn(async () => 'resolved-key')
-    await search([accountSource(resolveToken), keySource(keyRef(resolve))])
-    const [request] = sent()
-    expect(sent()).toHaveLength(1)
-    expect(request?.url).toBe(`${ACCOUNT_BASE}/search`)
-    expect(resolveToken).toHaveBeenCalledExactlyOnceWith(request?.url)
-    expect(resolve).not.toHaveBeenCalled()
-    expect(request?.headers['x-dsh-auth-token']).toBe('account-token')
-    expect(request?.headers).not.toHaveProperty('x-api-key')
-    expect(request?.headers).not.toHaveProperty('authorization')
-  })
-
-  it('sends only the key to its own base when the key comes first, without reading the account', async () => {
-    const { sent } = captureFetch()
-    const resolveToken = vi.fn(async () => 'account-token')
     const resolve = vi.fn(async () => 'resolved-key')
     const configured = vi.fn(async () => true)
-    await search([keySource(keyRef(resolve, configured)), accountSource(resolveToken)])
-    const [request] = sent()
+    await search([keySource(keyRef(resolve, configured))])
     expect(sent()).toHaveLength(1)
-    expect(request?.url).toBe(`${API_BASE}/search`)
-    expect(request?.headers).toMatchObject({ authorization: 'Bearer resolved-key' })
-    expect(request?.headers).not.toHaveProperty('x-dsh-auth-token')
+    expect(sent()[0]?.url).toBe(`${API_BASE}/search`)
+    expect(sent()[0]?.headers).toMatchObject({ authorization: 'Bearer resolved-key' })
+    expect(sent()[0]?.headers).not.toHaveProperty('x-dsh-auth-token')
     expect(resolve).toHaveBeenCalledOnce()
     expect(configured).not.toHaveBeenCalled()
-    expect(resolveToken).not.toHaveBeenCalled()
-  })
-
-  it('sends the account token when the key first in order is absent', async () => {
-    const { sent } = captureFetch()
-    await search([keySource(keyRef(async () => undefined)), accountSource(async () => 'account-token')])
-    expect(sent().map(row => [row.url, row.headers['x-dsh-auth-token'], row.headers.authorization]))
-      .toEqual([[`${ACCOUNT_BASE}/search`, 'account-token', undefined]])
-  })
-
-  it.each([undefined, ''])('sends the key to its own base when the account first in order resolves %j', async (token) => {
-    const { sent } = captureFetch()
-    await search([accountSource(async () => token), keySource()])
-    expect(sent().map(row => [row.url, row.headers.authorization, row.headers['x-dsh-auth-token']]))
-      .toEqual([[`${API_BASE}/search`, 'Bearer ds-key', undefined]])
   })
 
   it.each<[string, readonly DeepSeekWebAuthSource[]]>([
     ['no sources', []],
-    ['a missing key and no account token', [keySource(keyRef(async () => undefined)), accountSource(async () => undefined)]],
+    ['a missing key', [keySource(keyRef(async () => undefined))]],
   ])('fails with the caller diagnostic and sends nothing for %s', async (_label, sources) => {
     const { fetchMock } = captureFetch()
     await expect(search(sources, undefined, { missingCredentialMessage: 'no credential for this search' }))
@@ -144,47 +89,27 @@ describe('DeepSeek web credential order', () => {
   })
 
   it('names no credential without a caller diagnostic', async () => {
-    captureFetch()
+    const { fetchMock } = captureFetch()
     await expect(search([])).rejects.toMatchObject({
       code: 'WEB_PROVIDER_CREDENTIAL_MISSING', message: 'DeepSeek web access has no credential to send',
     })
-  })
-
-  it('sends an earlier present source without reaching a misconfigured one', async () => {
-    const { sent } = captureFetch()
-    await search([accountSource(async () => 'account-token'), misconfigured])
-    expect(sent().map(row => row.url)).toEqual([`${ACCOUNT_BASE}/search`])
-  })
-
-  it.each<[string, readonly DeepSeekWebAuthSource[]]>([
-    ['first', [misconfigured, keySource()]],
-    ['after an absent account token', [accountSource(async () => undefined), misconfigured, keySource()]],
-  ])('fails with WEB_PROVIDER_MISCONFIGURED when a misconfigured source is reached %s', async (_label, sources) => {
-    const { fetchMock } = captureFetch()
-    await expect(search(sources)).rejects.toMatchObject({ code: 'WEB_PROVIDER_MISCONFIGURED', message: 'route settings do not resolve' })
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('maps an account read failure to WEB_PROVIDER_ERROR without reading the next source', async () => {
+  it('fails before dispatch when the endpoint settings do not resolve', async () => {
     const { fetchMock } = captureFetch()
-    const resolve = vi.fn(async () => 'resolved-key')
-    await expect(search([accountSource(() => Promise.reject(new Error('account storage failed'))), keySource(keyRef(resolve))]))
-      .rejects.toThrow(expect.objectContaining({
-        code: 'WEB_PROVIDER_ERROR',
-        message: 'DeepSeek web credential resolution failed: Error: account storage failed',
-      }))
-    expect(resolve).not.toHaveBeenCalled()
+    await expect(search([misconfigured])).rejects.toMatchObject({
+      code: 'WEB_PROVIDER_MISCONFIGURED', message: 'route settings do not resolve',
+    })
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it.each([undefined, new AbortController().signal])('keeps a key read failure as the cause without reading the account (signal %#)', async (signal) => {
+  it('keeps a key read failure as the cause without dispatching', async () => {
     const { fetchMock } = captureFetch()
     const failure = new WebError('malformed key', 'WEB_PROVIDER_MISCONFIGURED')
-    const resolveToken = vi.fn(async () => 'account-token')
-    const error = await rejectedWebError(search([keySource(keyRef(() => Promise.reject(failure))), accountSource(resolveToken)], signal))
+    const error = await rejectedWebError(search([keySource(keyRef(() => Promise.reject(failure)))]))
     expect(error).toMatchObject({ code: 'WEB_PROVIDER_ERROR', message: `DeepSeek web credential resolution failed: ${String(failure)}` })
     expect(error.cause).toBe(failure)
-    expect(resolveToken).not.toHaveBeenCalled()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
@@ -192,275 +117,29 @@ describe('DeepSeek web credential order', () => {
 describe('DeepSeek web credential availability and readiness', () => {
   it.each<[boolean, readonly DeepSeekWebAuthSource[]]>([
     [false, []],
-    [true, [keySource(keyRef(async () => undefined, async () => false))]],
     [true, [keySource()]],
-    [true, [keySource(keyRef(async () => undefined))]],
-    [true, [accountSource(async () => undefined)]],
     [true, [misconfigured]],
   ])('reports a source to try as %s without reading credentials', (expected, sources) => {
     expect(hasDeepSeekWebCredential({ sources })).toBe(expected)
   })
 
-  it('checks a key for presence without reading it, and asks the account for its endpoint', async () => {
+  it('checks a key for presence without reading it', async () => {
     const { fetchMock } = captureFetch()
     const resolve = vi.fn(async () => 'resolved-key')
-    const configured = vi.fn(async () => false)
-    const resolveToken = vi.fn(async (_endpoint: string) => 'account-token')
-    expect(await isDeepSeekWebAuthReady({ sources: [keySource(keyRef(resolve, configured)), accountSource(resolveToken)] })).toBe(true)
+    const configured = vi.fn(async () => true)
+    expect(await isDeepSeekWebAuthReady({ sources: [keySource(keyRef(resolve, configured))] })).toBe(true)
     expect(configured).toHaveBeenCalledOnce()
     expect(resolve).not.toHaveBeenCalled()
-    expect(resolveToken).toHaveBeenCalledExactlyOnceWith(`${ACCOUNT_BASE}/search`)
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it.each<[string, readonly DeepSeekWebAuthSource[], boolean]>([
-    ['no sources', [], false],
-    ['an unconfigured referenced key', [keySource(keyRef(async () => undefined, async () => false))], false],
-    ['a configured referenced key', [keySource()], true],
-    ['a configured key before the account', [keySource(keyRef(async () => undefined)), accountSource(async () => undefined)], true],
-    ['neither credential', [accountSource(async () => ''), keySource(keyRef(async () => undefined, async () => false))], false],
-  ])('answers for %s', async (_label, sources, expected) => {
-    expect(await isDeepSeekWebAuthReady({ sources })).toBe(expected)
-  })
-
-  it.each<[string, DeepSeekWebAuthSource]>([
-    ['a misconfigured source', misconfigured],
-    ['an unreadable account grant', accountSource(() => Promise.reject(new Error('grant unreadable')))],
-    ['an unreadable credential store', keySource(keyRef(async () => 'key', () => Promise.reject(new Error('store locked'))))],
-  ])('answers false at %s without reading later sources', async (_label, source) => {
-    const resolveToken = vi.fn(async () => 'account-token')
-    expect(await isDeepSeekWebAuthReady({ sources: [source, accountSource(resolveToken)] })).toBe(false)
-    expect(resolveToken).not.toHaveBeenCalled()
-  })
-})
-
-describe('DeepSeek web account authentication', () => {
-  it('replaces endpoint guidance with sign-in guidance when DeepSeek rejects the account token', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ error: { message: 'invalid token' } }, { status: 401 })))
-    const error = await rejectedWebError(search([accountSource(async () => 'account-token')]))
-    expect(error).toMatchObject({
-      code: 'WEB_PROVIDER_ERROR',
-      message: 'DeepSeek API error (HTTP 401): invalid token\n\n'
-        + 'DeepSeek rejected the account sign-in used for this web request. '
-        + 'Guide the user to sign in to DeepSeek again; the endpoint does not need changing.',
-    })
-  })
-
-  it.each([false, true])('invalidates the sent account token on 401 and preserves the HTTP error whether or not removal fails: %s', async (fails) => {
-    const rejectToken = vi.fn(async (_token: string) => { if (fails) throw new Error('storage failed') })
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ error: 'invalid token' }, { status: 401 })))
-    const error = await rejectedWebError(search([accountSource(async () => 'sent-token', rejectToken)]))
-    expect(error.code).toBe('WEB_PROVIDER_ERROR')
-    expect(error.message).toContain('HTTP 401')
-    expect(rejectToken).toHaveBeenCalledExactlyOnceWith('sent-token')
-  })
-
-  it('sends one request and tries no later source when the account token is rejected', async () => {
-    const { fetchMock } = captureFetch(() => jsonResponse({}, { status: 401 }))
-    const resolve = vi.fn(async () => 'resolved-key')
-    await expect(search([accountSource(async () => 'sent-token'), keySource(keyRef(resolve))])).rejects.toThrow('HTTP 401')
-    expect(fetchMock).toHaveBeenCalledOnce()
-    expect(resolve).not.toHaveBeenCalled()
-  })
-
-  it.each([401, 429])('sends one request and tries no later source when the key gets HTTP %i', async (status) => {
-    const { fetchMock } = captureFetch(() => jsonResponse({}, { status }))
-    const resolveToken = vi.fn(async () => 'account-token')
-    const rejectToken = vi.fn(async () => {})
-    await expect(search([keySource(), accountSource(resolveToken, rejectToken)])).rejects.toThrow(`HTTP ${status}`)
-    expect(fetchMock).toHaveBeenCalledOnce()
-    expect(resolveToken).not.toHaveBeenCalled()
-    expect(rejectToken).not.toHaveBeenCalled()
-  })
-
-  it('does not invalidate a token for status 403', async () => {
-    const rejectToken = vi.fn(async () => {})
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({}, { status: 403 })))
-    await expect(search([accountSource(async () => 'account-token', rejectToken)])).rejects.toMatchObject({ code: 'WEB_PROVIDER_ERROR' })
-    expect(rejectToken).not.toHaveBeenCalled()
-  })
-
-  it('keeps endpoint guidance for a 401 on an API key, which has no invalidation', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ error: 'invalid key' }, { status: 401 })))
-    const error = await rejectedWebError(search([keySource()]))
-    expect(error.message).toContain('DeepSeek API error (HTTP 401): invalid key')
-    expect(error.message).toContain('If that endpoint is not intended')
-    expect(error.message).not.toContain('sign in')
-  })
-
-  it('retains the HTTP failure when account invalidation cancels the requesting Session', async () => {
-    const controller = new AbortController()
-    const response = jsonResponse({ error: 'invalid token' }, { status: 401 })
-    const json = response.json.bind(response)
-    vi.spyOn(response, 'json').mockImplementation(async (): Promise<unknown> => {
-      controller.signal.throwIfAborted()
-      const body: unknown = await json()
-      return body
-    })
-    vi.stubGlobal('fetch', vi.fn(async () => response))
-    const error = await rejectedWebError(search(
-      [accountSource(async () => 'sent-token', async () => { controller.abort(new Error('signed out')) })], controller.signal,
-    ))
-    expect(error.code).toBe('WEB_PROVIDER_ERROR')
-    expect(error.message).toContain('HTTP 401')
-    expect(controller.signal.aborted).toBe(true)
-  })
-
-  it('invalidates the sent account token once when cancellation interrupts reading the 401 body', async () => {
-    const controller = new AbortController()
-    const response = jsonResponse({ error: 'invalid token' }, { status: 401 })
-    vi.spyOn(response, 'json').mockImplementation(async (): Promise<unknown> => {
-      controller.abort(new Error('caller stopped'))
-      throw new DOMException('The operation was aborted.', 'AbortError')
-    })
-    vi.stubGlobal('fetch', vi.fn(async () => response))
-    const rejectToken = vi.fn(async (_token: string) => {})
-    const error = await rejectedWebError(search([accountSource(async () => 'sent-token', rejectToken)], controller.signal))
-    expect(error.code).toBe('WEB_ABORTED')
-    expect(rejectToken).toHaveBeenCalledExactlyOnceWith('sent-token')
-  })
-
-  it('reports cancellation during an API-key 401 body read without invalidating a token', async () => {
-    const controller = new AbortController()
-    const response = jsonResponse({}, { status: 401 })
-    vi.spyOn(response, 'json').mockImplementation(async (): Promise<unknown> => {
-      controller.abort(new Error('caller stopped'))
-      throw new DOMException('The operation was aborted.', 'AbortError')
-    })
-    vi.stubGlobal('fetch', vi.fn(async () => response))
-    const rejectToken = vi.fn(async (_token: string) => {})
-    const error = await rejectedWebError(search([accountSource(async () => undefined, rejectToken), keySource()], controller.signal))
-    expect(error.code).toBe('WEB_ABORTED')
-    expect(rejectToken).not.toHaveBeenCalled()
-  })
-
-  it('keeps endpoint guidance for other account-authenticated HTTP failures', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({}, { status: 503 })))
-    const error = await rejectedWebError(search([accountSource(async () => 'account-token')]))
-    expect(error.message).toContain('If that endpoint is not intended')
-  })
-
-  it('maps a synchronous resolver throw to WEB_PROVIDER_ERROR', async () => {
-    const { fetchMock } = captureFetch()
-    await expect(search([accountSource(() => { throw new Error('account service threw') })]))
-      .rejects.toThrow(expect.objectContaining({
-        code: 'WEB_PROVIDER_ERROR',
-        message: 'DeepSeek web credential resolution failed: Error: account service threw',
-      }))
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('reports cancellation before a missing credential when no source exists', async () => {
-    const { fetchMock } = captureFetch()
-    await expect(search([], AbortSignal.abort(new Error('caller stopped'))))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('starts neither resolver for a pre-aborted call', async () => {
-    const resolveToken = vi.fn(async () => 'account-token')
-    const resolve = vi.fn(async () => 'resolved-key')
-    await expect(search([accountSource(resolveToken), keySource(keyRef(resolve))], AbortSignal.abort(new Error('caller stopped'))))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
-    expect(resolveToken).not.toHaveBeenCalled()
-    expect(resolve).not.toHaveBeenCalled()
-  })
-
-  it('does not start API-key resolution after cancellation during account resolution', async () => {
-    const controller = new AbortController()
-    const resolve = vi.fn(() => Promise.reject(new Error('must not run')))
-    await expect(search([
-      accountSource(async () => { controller.abort(new Error('caller stopped')); return undefined }), keySource(keyRef(resolve)),
-    ], controller.signal)).rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
-    expect(resolve).not.toHaveBeenCalled()
-  })
-
-  it('reports the cancellation when a credential read cancels its caller and then fails', async () => {
-    const { fetchMock } = captureFetch()
-    const controller = new AbortController()
-    const source = accountSource(() => {
-      controller.abort(new Error('caller stopped'))
-      return Promise.reject(new Error('read failed after the cancellation'))
-    })
-    await expect(search([source], controller.signal)).rejects.toMatchObject({ code: 'WEB_ABORTED' })
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('aborts while the account resolver remains pending', async () => {
-    const { fetchMock } = captureFetch()
-    const controller = new AbortController()
-    const pending = search([accountSource(() => new Promise<string>(() => {}))], controller.signal)
-    controller.abort(new Error('deadline'))
-    await expect(pending).rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-})
-
-describe('DeepSeek web credential withdrawal', () => {
-  const ACCOUNT_SIGNED_OUT = 'The DeepSeek account signed out before this web request finished. Guide the user to sign in to DeepSeek'
-    + ' again; the endpoint does not need changing.'
-  const KEY_WITHDRAWN = 'The credential this web request carried was withdrawn before the request finished. Guide the user to check'
-    + ' that credential on the Models page.'
-
-  /** Hold each request open until its signal aborts, as an unanswered endpoint does. */
-  function holdRequests() {
-    const sent = Promise.withResolvers<AbortSignal>()
-    vi.stubGlobal('fetch', vi.fn((_input: string, init?: RequestInit) => {
-      const signal = init!.signal!
-      sent.resolve(signal)
-      return new Promise<Response>((_resolve, reject) => {
-        signal.addEventListener('abort', () => { reject(signal.reason as Error) }, { once: true })
-      })
-    }))
-    return sent.promise
-  }
-
-  it.each<[string, (revoked: AbortSignal) => DeepSeekWebAuthSource, string]>([
-    ['an account sign-out', revoked => accountSource(async () => 'account-token', undefined, revoked), ACCOUNT_SIGNED_OUT],
-    ['the withdrawal of a key', revoked => keySource(undefined, revoked), KEY_WITHDRAWN],
-  ])('ends an open request at %s and reports the withdrawal instead of a cancellation', async (_label, source, message) => {
-    for (const signal of [undefined, new AbortController().signal]) {
-      const withdrawn = new AbortController()
-      const sent = holdRequests()
-      const pending = rejectedWebError(search([source(withdrawn.signal)], signal))
-      const request = await sent
-      expect(request.aborted).toBe(false)
-      withdrawn.abort()
-      const error = await pending
-      expect(error).toMatchObject({ code: 'WEB_PROVIDER_ERROR', message })
-      expect(error.cause).toBe(withdrawn.signal.reason)
-      expect(request.aborted).toBe(true)
-    }
-  })
-
-  it.each([200, 500])('reports a withdrawal that interrupts reading an HTTP %i body', async (status) => {
-    const withdrawn = new AbortController()
-    const body = new Response('', { status })
-    vi.spyOn(body, 'json').mockImplementation(async (): Promise<unknown> => {
-      withdrawn.abort()
-      throw new DOMException('The operation was aborted.', 'AbortError')
-    })
-    vi.stubGlobal('fetch', vi.fn(async () => body))
-    const error = await rejectedWebError(search([accountSource(async () => 'account-token', undefined, withdrawn.signal)]))
-    expect(error).toMatchObject({ code: 'WEB_PROVIDER_ERROR', message: ACCOUNT_SIGNED_OUT })
-  })
-
-  it('reports the caller\'s cancellation when the caller and the withdrawal both ended the request', async () => {
-    const withdrawn = new AbortController()
-    const controller = new AbortController()
-    vi.stubGlobal('fetch', vi.fn(async () => {
-      withdrawn.abort()
-      controller.abort(new Error('caller stopped'))
-      throw new DOMException('The operation was aborted.', 'AbortError')
-    }))
-    await expect(search([accountSource(async () => 'account-token', undefined, withdrawn.signal)], controller.signal))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
-  })
-
-  it('keeps reporting a failure of a request whose credential stays in force', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('connection refused'))))
-    const error = await rejectedWebError(search([accountSource(async () => 'account-token', undefined, new AbortController().signal)]))
-    expect(error.message).toContain('DeepSeek web request failed: TypeError: connection refused')
+  it.each<[string, readonly DeepSeekWebAuthSource[]]>([
+    ['no sources', []],
+    ['an unconfigured key', [keySource(keyRef(async () => undefined, async () => false))]],
+    ['a misconfigured source', [misconfigured]],
+    ['an unreadable credential store', [keySource(keyRef(async () => 'key', () => Promise.reject(new Error('store locked'))))]],
+  ])('answers false with %s', async (_label, sources) => {
+    expect(await isDeepSeekWebAuthReady({ sources })).toBe(false)
   })
 })
 
@@ -520,6 +199,14 @@ describe('DeepSeek web cancellation and failures', () => {
       return Promise.resolve('unused-key')
     }))], controller.signal)).rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('keeps endpoint guidance when the API rejects a key', async () => {
+    const { fetchMock } = captureFetch(() => jsonResponse({ error: 'invalid key' }, { status: 401 }))
+    const error = await rejectedWebError(search([keySource()]))
+    expect(error.message).toContain('DeepSeek API error (HTTP 401): invalid key')
+    expect(error.message).toContain('If that endpoint is not intended')
+    expect(fetchMock).toHaveBeenCalledOnce()
   })
 
   it('maps an HTTP error to WEB_PROVIDER_ERROR with the provider message', async () => {

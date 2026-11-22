@@ -33,7 +33,7 @@ kind: "package-reference"
 
 ### 最小配置
 
-加载服务并让唯一挂载的后端自动选择，或用 `searchProvider`／`fetchProvider` 固定提供方 id。环境变量 `$DSH_WEB_SEARCH_PROVIDER` 与 `$DSH_WEB_FETCH_PROVIDER` 提供相同字段，不是另一条优先级链。下面两个后端都注册了抓取提供方，因此示例固定 `fetchProvider: http`。其中的 DeepSeek 后端要求挂载 [`dsh-deepseek-auth`](../../account/deepseek-auth/README.zh.md) 以取得凭据。
+加载服务并让唯一挂载的后端自动选择，或用 `searchProvider`／`fetchProvider` 固定提供方 id。环境变量 `$DSH_WEB_SEARCH_PROVIDER` 与 `$DSH_WEB_FETCH_PROVIDER` 提供相同字段，不是另一条优先级链。下面两个后端都注册了抓取提供方，因此示例固定 `fetchProvider: http`。其中的 DeepSeek 后端要求挂载 [`dsh-deepseek-auth`](../../credentials/deepseek-auth/README.zh.md) 以取得凭据。
 
 ```yaml
 - name: '@deepseek-ai/dsh-web'
@@ -80,7 +80,7 @@ const page = await ctx.web.fetch({ url: 'https://example.com' })
 | 无 id，没有可用提供方 | `WEB_PROVIDER_UNAVAILABLE` |
 | 无 id，多个可用提供方 | `WEB_PROVIDER_AMBIGUOUS` |
 
-随附的 `deepseek-official` 与 `deepseek-search-api` 搜索 id 分别选择旧版 Messages 搜索与直接 Search API。没有配置搜索提供方时，为 `deepseek-official` 或 `deepseek-account` 模型路由上的模型请求发起的搜索优先使用 `deepseek-official`，因为 DeepSeek 不对 Messages 搜索按次收费；其他路由上的请求以及不服务于任何模型请求的搜索优先使用 `deepseek-search-api`。这一优先规则固定在本包中，仅在被优先的提供方已注册且可用时生效，因此没有这些提供方的组合按上表选择。[base 组合](../../bundle/base/cordis.patch.yml)挂载这两个提供方且不配置搜索提供方。已配置的 `searchProvider` 或 `$DSH_WEB_SEARCH_PROVIDER` 对所有路由生效。
+随附的 `deepseek-official` 与 `deepseek-search-api` 搜索 id 分别选择旧版 Messages 搜索与直接 Search API。没有配置搜索提供方时，为 `deepseek-official` 模型路由上的模型请求发起的搜索优先使用 `deepseek-official`，因为 DeepSeek 不对 Messages 搜索按次收费；其他路由上的请求以及不服务于任何模型请求的搜索优先使用 `deepseek-search-api`。这一优先规则固定在本包中，仅在被优先的提供方已注册且可用时生效，因此没有这些提供方的组合按上表选择。[base 组合](../../bundle/base/cordis.patch.yml)挂载这两个提供方且不配置搜索提供方。已配置的 `searchProvider` 或 `$DSH_WEB_SEARCH_PROVIDER` 对所有路由生效。
 
 提供方的可用性是一项廉价的局部检查——例如其 API 密钥是否存在——并且从不发起网络调用，因此选择保持快速且确定。
 

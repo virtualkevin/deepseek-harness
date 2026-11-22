@@ -30,7 +30,7 @@
       "path": "../../../vendor/schemastery"
     },
     {
-      "path": "../../account/deepseek-auth"
+      "path": "../../credentials/deepseek-auth"
     }
   ]
 }

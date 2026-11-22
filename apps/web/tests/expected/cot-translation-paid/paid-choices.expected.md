@@ -11,13 +11,13 @@
   - paragraph:
     - img "展开的思考行从英文翻译成中文，并显示“查看原文”按钮"
 - paragraph: 展开的思考内容会发送给所选翻译服务，可能包含私有代码或对话细节。
-- paragraph: 每个未缓存片段都会通过所选账号或官方 API 凭据单独发送一次付费的 DeepSeek Flash 请求；重新展开会复用已保存的译文，更改服务、语言、原文或请求设置可能发送新的付费请求
+- paragraph: 每个未缓存片段都会通过配置的 DeepSeek API 密钥单独发送一次付费的 DeepSeek Flash 请求；重新展开会复用已保存的译文，更改服务、语言、原文或请求设置可能发送新的付费请求
 - text: 翻译服务 已覆盖
 - button "恢复默认"
 - combobox "翻译服务":
   - option "Bing"
   - option "Google"
-  - option "DeepSeek Flash · 账号（付费）" [selected]
+  - option "DeepSeek Flash · 官方 API（付费）" [selected]
 - text: 目标语言 已覆盖
 - button "恢复默认"
 - textbox "目标语言":

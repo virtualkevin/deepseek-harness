@@ -279,7 +279,7 @@ describe('submitted attachments', () => {
       b.shell.addAttachments([draft.id])
       await vi.waitFor(() => { expect(b.root.fileUploads.getSnapshot()[draft.id]?.status).toBe('ready') })
       b.shell.setDraft('send with file')
-      b.shell.submit('queue', 'click')
+      b.shell.submit('queue')
       await vi.waitFor(() => { expect(b.shell.snapshot.phase).toBe('plain') })
       await b.runtime.flush()
       // The registry still holds the attachment for the echo; the draft no longer owns it.
@@ -304,7 +304,7 @@ describe('submitted attachments', () => {
       if (draft === undefined) throw new Error('draft missing')
       b.shell.addAttachments([draft.id])
       b.shell.setDraft('/review this file')
-      b.shell.submit('queue', 'enter')
+      b.shell.submit('queue')
       expect(b.shell.snapshot.phase).toBe('adjudicating')
       expect(adjudicate).toHaveBeenCalledOnce()
       await b.switchAway()

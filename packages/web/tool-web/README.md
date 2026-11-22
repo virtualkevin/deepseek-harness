@@ -33,7 +33,7 @@ Choose this package when the model should discover current information or read a
 
 ### Minimal configuration
 
-Load the web service, at least one backend, and this package; both tools register by default. The DeepSeek backend below requires [`dsh-deepseek-auth`](../../account/deepseek-auth/README.md) for its credentials.
+Load the web service, at least one backend, and this package; both tools register by default. The DeepSeek backend below requires [`dsh-deepseek-auth`](../../credentials/deepseek-auth/README.md) for its credentials.
 
 ```yaml
 - name: '@deepseek-ai/dsh-web'

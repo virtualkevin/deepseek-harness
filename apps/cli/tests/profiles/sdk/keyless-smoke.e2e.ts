@@ -115,7 +115,6 @@ describe('Python SDK dsh profile keyless smoke', () => {
         ...launch.env,
         DSH_HOME: join(root, '.dsh'),
         DSH_PERMISSION_MODE: 'danger-full-access',
-        DSH_TELEMETRY_DISABLED: '1',
         DSH_TOOLS_MODE: ptc ? 'native' : 'ptc',
         DEEPSEEK_API_KEY: 'keyless-smoke-no-call',
         DEEPSEEK_BASE_URL: `http://127.0.0.1:${address.port}`,
@@ -456,7 +455,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
       ...launch.args, '--profile', 'sdk', '--patch', patch,
     ], {
       cwd: repoRoot,
-      env: { ...launch.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1', DEEPSEEK_API_KEY: 'keyless-no-call' },
+      env: { ...launch.env, DSH_HOME: home, DEEPSEEK_API_KEY: 'keyless-no-call' },
       stdin: 'pipe',
       stripFinalNewline: false,
       timeout: 25_000,
@@ -513,7 +512,6 @@ describe('Python SDK dsh profile keyless smoke', () => {
       env: {
         ...launch.env,
         DSH_HOME: join(root, '.dsh'),
-        DSH_TELEMETRY_DISABLED: '1',
         DEEPSEEK_API_KEY: 'keyless-smoke-no-call',
         DEEPSEEK_BASE_URL: `http://127.0.0.1:${address.port}`,
         TZ: tz,
@@ -660,7 +658,7 @@ it.each(['unset', 'empty', 'full', 'python-only', 'python-only-patched', 'wrong-
     srcBin: fileURLToPath(new URL('../../../src/bin.ts', import.meta.url)), mode: 'lib',
     configArgs: ['--profile', 'sdk', '--patch', cliPatch],
     env: { DSH_HOME: home, DSH_PRIMARY_RUNTIME: mode === 'unset' ? undefined : mode === 'empty' ? '' : source + '/',
-      DSH_PERMISSION_MODE: 'danger-full-access', DSH_TELEMETRY_DISABLED: '1',
+      DSH_PERMISSION_MODE: 'danger-full-access',
       DEEPSEEK_API_KEY: 'local-fixture', DEEPSEEK_BASE_URL: `http://127.0.0.1:${address.port}` },
   })
   const child = execa(officeLaunch.command, officeLaunch.args, { cwd: repoRoot, env: officeLaunch.env, timeout: 60_000, reject: false })
@@ -759,7 +757,7 @@ it.each(['standard', 'ptc'] as const)('lists and loads the packaged dsh-doc skil
   const launch = resolveExampleLaunch({
     srcBin: fileURLToPath(new URL('../../../src/bin.ts', import.meta.url)), mode: 'lib',
     configArgs: ['--profile', 'sdk', ...mode === 'ptc' ? ['--patch', join(repoRoot, 'apps/cli/config/examples/ptc.yml')] : []],
-    env: { DSH_HOME: join(root, 'home'), DSH_PRIMARY_RUNTIME: '', DSH_PERMISSION_MODE: 'danger-full-access', DSH_TELEMETRY_DISABLED: '1',
+    env: { DSH_HOME: join(root, 'home'), DSH_PRIMARY_RUNTIME: '', DSH_PERMISSION_MODE: 'danger-full-access',
       DEEPSEEK_API_KEY: 'local-fixture', DEEPSEEK_BASE_URL: `http://127.0.0.1:${address.port}` },
   })
   const child = execa(launch.command, launch.args, { cwd: repoRoot, env: launch.env, timeout: 60_000, reject: false })

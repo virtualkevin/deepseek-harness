@@ -22,8 +22,8 @@ export interface SnapshotCorpusGenerationSummary {
 }
 
 const RETAINED_BASELINE_VERSION = 3
-// Includes native and PTC Office recordings that retain removed tools.
-const MAX_RETAINED_ROLES = 13
+// Includes native and PTC Office recordings and retired DeepSeek account scenarios.
+const MAX_RETAINED_ROLES = 16
 const REQUIRED_V0_COVERAGE = new Set([
   'multi-hop',
   'packed-row',

@@ -37,7 +37,7 @@ Choose this package whenever a plugin or composition needs to call a model: it i
 
 ### Minimal composition
 
-Mount the service and at least one adapter, then select the provider by name in every request. The DeepSeek route below also requires [`dsh-deepseek-auth`](../../account/deepseek-auth/README.md), which releases its API key:
+Mount the service and at least one adapter, then select the provider by name in every request. The DeepSeek route below also requires [`dsh-deepseek-auth`](../../credentials/deepseek-auth/README.md), which releases its API key:
 
 ```yaml
 - name: '@deepseek-ai/dsh-llm'

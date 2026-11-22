@@ -1,5 +1,4 @@
 /** Messages file-reference admission, bounded recovery and request-wide inline fallback. */
-import type { AnonymousUserId } from '@deepseek-ai/dsh-anonymous-user-id'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { AttachmentId, ImageVariantId } from '@deepseek-ai/dsh-attachment/types'
@@ -12,7 +11,7 @@ import type { Options as Config } from '../src/config.ts'
 import { DeepSeekAdapter } from '../src/adapter.ts'
 import { prepareImages } from '../src/images.ts'
 import { providerErrorDetail } from '../src/transport.ts'
-import { chunks, options, prepareExtensions, sse, textEvents, user, requestImageStore } from './helpers.ts'
+import { chunks, options, sse, textEvents, user, requestImageStore } from './helpers.ts'
 
 const model = 'deepseek-flash'
 const ref: ImageAttachmentRef = { attachmentId: brandString<AttachmentId>(`sha256:${'a'.repeat(64)}`), width: 1, height: 1, mediaType: 'image/png', bytes: 3 }
@@ -28,7 +27,7 @@ function body(init: RequestInit | undefined): string {
   return init.body
 }
 const rejected = (message: string, status = 400) => new Response(JSON.stringify({ error: { type: 'invalid_request_error', message } }), { status })
-function harness(config: Config = {}, revoked?: AbortSignal) {
+function harness(config: Config = {}) {
   const ensureUploaded = vi.fn<DeepSeekFileStore['ensureUploaded']>(async image => ({
     record: { fileId: brandString<DeepSeekFileId>(image.attachment.attachmentId === ref.attachmentId ? 'file-a' : 'file-b') }, uploaded: false,
   } as Awaited<ReturnType<DeepSeekFileStore['ensureUploaded']>>))
@@ -37,14 +36,13 @@ function harness(config: Config = {}, revoked?: AbortSignal) {
   const readImageRequest = vi.fn(async (attachment: ImageAttachmentRef) => version(attachment))
   // The codec and remote upload are the expensive boundaries; request projection and recovery stay real.
   const attachments = requestImageStore(readImageRequest)
-  const prepare = vi.fn(prepareExtensions)
   const adapter = new DeepSeekAdapter({
     options: () => resolveAdapterOptions(Object.assign({ baseURL: 'https://gateway.example/custom' }, config)),
-    resolveAuth: async () => ({ headers: { 'x-api-key': 'test-key' }, ...revoked === undefined ? {} : { revoked } }),
-    resolveUserId: () => 'test-user' as AnonymousUserId, resolveAttachments: () => attachments,
-    resolveImageAccess: () => ({ readonlyPath: '/workspace/image.png' }), resolveFiles: () => files, prepareExtensions: prepare,
+    resolveAuth: async () => ({ headers: { 'x-api-key': 'test-key' } }),
+    resolveAttachments: () => attachments,
+    resolveImageAccess: () => ({ readonlyPath: '/workspace/image.png' }), resolveFiles: () => files,
   })
-  return { adapter, ensureUploaded, invalidate, readImageRequest, prepare }
+  return { adapter, ensureUploaded, invalidate, readImageRequest }
 }
 afterEach(() => { vi.unstubAllGlobals() })
 
@@ -127,14 +125,13 @@ describe('Messages Files requests', () => {
     expect(body(init)).not.toContain('base64')
   })
 
-  it('invalidates the named stale id once and prepares extensions for each HTTP attempt', async () => {
+  it('invalidates the named stale id once before retrying the request', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValueOnce(rejected('file-a expired')).mockImplementation(async () => success())
     vi.stubGlobal('fetch', fetchImpl)
     const h = harness()
     await chunks(h.adapter.stream(request([ref, second])))
     expect(h.invalidate).toHaveBeenCalledExactlyOnceWith([{ variantId: version(ref).variantId, fileId: 'file-a' }], expect.objectContaining({}))
     expect(fetchImpl).toHaveBeenCalledTimes(2)
-    expect(h.prepare).toHaveBeenCalledTimes(2)
     expect(h.ensureUploaded).toHaveBeenCalledTimes(4)
   })
 
@@ -169,7 +166,6 @@ describe('Messages Files requests', () => {
     expect(body(init).match(/"type":"base64"/gu)).toHaveLength(2)
     expect(body(init)).not.toContain('file_id')
     expect(new Headers(init?.headers).has('anthropic-beta')).toBe(false)
-    expect(h.prepare).toHaveBeenCalledTimes(1)
   })
 
   it('applies the tighter inline byte budget only after Files resolution fails', async () => {
@@ -264,23 +260,6 @@ describe('Messages Files requests', () => {
     controller.abort()
     await result
     expect(fetchImpl).toHaveBeenCalledTimes(1)
-  })
-
-  it('ends a pending upload with its withdrawn credential and sends no request', async () => {
-    const fetchImpl = vi.fn<typeof fetch>(async () => success())
-    vi.stubGlobal('fetch', fetchImpl)
-    const withdrawn = new AbortController()
-    const h = harness({}, withdrawn.signal)
-    const uploading = Promise.withResolvers<undefined>()
-    h.ensureUploaded.mockImplementation(async (_version, _connection, _policy, signal) => new Promise((_resolve, reject) => {
-      signal!.addEventListener('abort', () => { reject(new Error('upload aborted', { cause: signal!.reason })) }, { once: true })
-      uploading.resolve(undefined)
-    }))
-    const result = expect(chunks(h.adapter.stream(request()))).rejects.toMatchObject({ code: 'TRANSPORT' })
-    await uploading.promise
-    withdrawn.abort()
-    await result
-    expect(fetchImpl).not.toHaveBeenCalled()
   })
 
   it('classifies Files recovery only from provider error fields', () => {

@@ -20,7 +20,7 @@ afterEach(async () => {
   if (failures.length > 0) throw new AggregateError(failures, 'Paid storage fixture teardown failed')
 })
 
-const providers = ['deepseek-account', 'deepseek-official'] as const
+const provider = 'deepseek-official'
 const requests = (events: readonly SessionEvent[]) => events.filter(event => pluginRecordOf(event)?.type === 'plugin:translator/request')
 const results = (events: readonly SessionEvent[]) => events.filter(event => pluginRecordOf(event)?.type === 'plugin:translator/result')
 
@@ -85,8 +85,8 @@ describe('common paid translation persistence', () => {
       }
     })
 
-  it.each(providers.flatMap(provider => ['credentials', 'native-owner'].map(unavailable => ({ provider, unavailable }))))(
-    'reuses $provider after a complete restart with unavailable $unavailable and zero new HTTP', async ({ provider, unavailable }) => {
+  it.each(['credentials', 'native-owner'])(
+    'reuses paid translations after a complete restart with unavailable %s and zero new HTTP', async (unavailable) => {
       const b = await paidFixture(cleanups), id = b.session!.id, oldContext = b.ctx
       const specification = () => b.ctx.translator.resolve({ provider, text: 'Original paragraph', targetLanguage: 'zh', sessionId: id })
       expect(await b.ctx.translator.translate(specification())).toBe('翻译结果')
@@ -95,7 +95,6 @@ describe('common paid translation persistence', () => {
       expect(results(committed)).toHaveLength(1)
       expect(results(committed)[0]).toMatchObject({ ignorable: true, data: { requestSeq: requests(committed)[0]?.seq, text: '翻译结果' } })
       b.setConfigured(false)
-      b.setSignedIn(false)
       await b.restart({ withNativeOwners: unavailable !== 'native-owner' })
       expect(b.ctx).not.toBe(oldContext)
       expect(b.ctx.sessions.list()).toEqual([])
@@ -110,7 +109,7 @@ describe('common paid translation persistence', () => {
       expect(b.errors).toEqual([])
     })
 
-  it.each(providers)('requires a live writer for uncached %s before preparation and retains independent input and result', async (provider) => {
+  it('requires a live writer for uncached paid translations before preparation and retains independent input and result', async () => {
     const id = brandString<SessionId>('historical-paid-translation')
     const b = await paidFixture(cleanups, { withSession: false, withSessionQuery: true })
     const original = await b.createHistorical(id, historicalEvents())

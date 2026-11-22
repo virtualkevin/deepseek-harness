@@ -29,14 +29,14 @@ export class DeepSeekFetchApiProvider implements WebFetchProvider {
   readonly id = DEEPSEEK_FETCH_API_PROVIDER_ID
   /** Picker description: what this provider suits and what it costs or cannot do. */
   readonly description: NonNullable<WebFetchProvider['description']> = {
-    en: "Can't reach intranet or local addresses. Incurs charges, paid by the account or API key chosen under Billing.",
-    zh: '无法访问内网和本机。会产生费用，由「计费方式」选定的账号或 API Key 支付。',
-    ja: 'イントラネットやローカルのアドレスにはアクセスできません。料金が発生し、「課金方法」で選んだアカウントまたは API キーに請求されます。',
-    es: 'No puede acceder a direcciones de la intranet ni locales. Genera cargos, que paga la cuenta o la clave de API elegida en Facturación.',
-    fr: "N'accède pas aux adresses intranet ou locales. Entraîne des frais, payés par le compte ou la clé API choisi dans Facturation.",
-    de: 'Erreicht keine Intranet- oder lokalen Adressen. Verursacht Kosten, die das unter Abrechnung gewählte Konto oder der API-Schlüssel trägt.',
-    ru: 'Адреса интрасети и локальные адреса недоступны. Услуга платная: оплата идёт с аккаунта или ключа API, выбранного в разделе «Оплата».',
-    pt: 'Não acessa endereços da intranet nem locais. Gera cobranças, pagas pela conta ou chave de API escolhida em Cobrança.',
+    en: "Can't reach intranet or local addresses. Incurs charges and requires a DeepSeek API key.",
+    zh: '无法访问内网和本机。会产生费用，需要 DeepSeek API Key。',
+    ja: 'イントラネットやローカルのアドレスにはアクセスできません。料金が発生し、DeepSeek API キーが必要です。',
+    es: 'No puede acceder a direcciones de la intranet ni locales. Genera cargos y requiere una clave de API de DeepSeek.',
+    fr: "N'accède pas aux adresses intranet ou locales. Entraîne des frais et nécessite une clé API DeepSeek.",
+    de: 'Erreicht keine Intranet- oder lokalen Adressen. Verursacht Kosten und erfordert einen DeepSeek-API-Schlüssel.',
+    ru: 'Адреса интрасети и локальные адреса недоступны. Услуга платная и требует ключ API DeepSeek.',
+    pt: 'Não acessa endereços da intranet nem locais. Gera cobranças e requer uma chave de API da DeepSeek.',
   }
 
   /** @param resolveOptions - the options for the NEXT fetch, read once at each fetch's entry. */

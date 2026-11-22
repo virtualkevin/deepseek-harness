@@ -13,7 +13,7 @@ import type { ObservableSnapshot, SnapshotStore } from '@deepseek-ai/dsh-client-
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { QuoteSummary } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ArbitrateKey, ArbitrateOutcome, DraftQuote, Occurrence, ReferenceInsert, TokenSpan } from './draft-editor.ts'
-import type { InputSubmitMode, MessageSubmission } from './composer-submission.ts'
+import type { InputSubmitMode } from './composer-submission.ts'
 
 /** Attachment payload passed to a claimed command submission. */
 export type SubmitAttachment =
@@ -216,7 +216,7 @@ export interface SessionInput extends InputTarget {
    * THE complexity sink: enter adjudication, submit transaction, and the default sink live inside.
    * @param mode - delivery intent retained through asynchronous adjudication and serialization.
    */
-  submit(mode?: InputSubmitMode, source?: 'click' | 'enter'): void
+  submit(mode?: InputSubmitMode): void
   /**
    * Surface a notice outside the machine's own effect stream: detached
    * command results and business notifications render through here.
@@ -359,8 +359,6 @@ export interface SubmitAttempt {
   readonly attachmentIds: readonly DraftAttachmentId[]
   /** Default-message delivery intent retained while slash adjudication is pending. */
   readonly mode: InputSubmitMode
-  /** Original message occurrence, retained across command arbitration. */
-  readonly submission?: MessageSubmission
 }
 
 /**
@@ -383,7 +381,6 @@ export type InputEvent =
     readonly occurrences: readonly Occurrence[]
     readonly quotes: readonly DraftQuote[]
     readonly attachmentIds: readonly DraftAttachmentId[]
-    readonly submission?: MessageSubmission
   }
   | { readonly type: 'adjudicated'; readonly attempt: SubmitAttempt; readonly outcome: PickOutcome }
   | { readonly type: 'adjudication-failed'; readonly attempt: SubmitAttempt; readonly message: string }

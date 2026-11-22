@@ -1,11 +1,11 @@
 version: 1
 scenario: text-turn
 profile: sdk
-composition: sdk-upload
+composition: sdk-feedback
 recording: live
 environment:
   DSH_SNAPSHOT_FEEDBACK: '1'
 header:
-  class: sdk-upload
+  class: sdk-feedback
   pin: true
   toolSchemasSource: session/text-turn

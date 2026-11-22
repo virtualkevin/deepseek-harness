@@ -79,7 +79,6 @@ export async function launchRemoteConnectionFixture(secure: boolean, ticketLifet
       ...process.env,
       DSH_HOME: join(root, 'home'),
       DSH_AGENTS_HOME: join(root, 'agents'),
-      DSH_TELEMETRY_DISABLED: '1',
     }
     delete env.NODE_OPTIONS
     delete env.DEEPSEEK_API_KEY

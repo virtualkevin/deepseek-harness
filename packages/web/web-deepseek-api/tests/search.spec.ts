@@ -85,10 +85,6 @@ describe('DeepSeekSearchApiProvider availability', () => {
     expect(searchProvider(options).available()).toBe(true)
   })
 
-  it('is available with only an account credential', () => {
-    const account = { kind: 'account', endpoint: `${BASE}/search`, configured: async () => true, resolve: async () => undefined } as const
-    expect(searchProvider({ ...options, auth: { sources: [account] } }).available()).toBe(true)
-  })
 
   it('is available with only a misconfigured source, which the search reports', () => {
     expect(searchProvider({ ...options, auth: { sources: [{ kind: 'misconfigured', message: 'route settings do not resolve' }] } }).available()).toBe(true)

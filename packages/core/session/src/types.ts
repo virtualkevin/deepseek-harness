@@ -295,6 +295,15 @@ export type RequestHeaderReason = 'initial' | 'resume' | 'change' | 'series'
  * compact raw streams so persistence stores one durable settlement per attempt.
  */
 export interface SessionEventMap {
+  /** Historical receipt from a release that uploaded Session logs. Retained for existing Sessions. */
+  'session-log-deepseek/delivery-accepted': {
+    /** Session identity on the accepted request; inherited receipts keep the parent's id. */
+    sessionId: SessionId
+    /** Accepted Session format generation; absence identifies version 0. */
+    sessionFormatVersion?: number
+    /** Last event in the accepted suffix. */
+    throughSeq: SessionSeq
+  }
   /**
    * Opens turn `turn` before the loop claims queued input or runs pre-step.
    * Rejection, empty input, cancellation, or failure may close it with no

@@ -9,8 +9,8 @@
   en: e66a018af9e2de3c
   zh: d7188003d01964bb
 /deepseek-ai-dsh-llm-deepseek/summary:
-  en: c76085f3ddeaa1e4
-  zh: 40bde51391cd9d10
+  en: db6e2b61135ef6eb
+  zh: edba76df8da56f28
 /deepseek-ai-dsh-llm-deepseek/table-of-contents:
   en: d152484eb41ac6b4
   zh: 09388d293f9be9cb
@@ -26,21 +26,18 @@
 /deepseek-ai-dsh-llm-deepseek/use-this-package/endpoint-and-wire-format:
   en: 2cbb7da28f41aa98
   zh: 3ecb9d17c7e77a03
-/deepseek-ai-dsh-llm-deepseek/use-this-package/account-credentials:
-  en: 5f8cda73f2c10260
-  zh: 2a507d9ee8b9c67a
+/deepseek-ai-dsh-llm-deepseek/use-this-package/api-key-credentials:
+  en: 6ad38f91561a85cd
+  zh: 6f2c219cc16795cf
 /deepseek-ai-dsh-llm-deepseek/use-this-package/streaming-with-thinking-and-images:
   en: baab62ea4b39b382
   zh: d00aca9dde9383bb
 /deepseek-ai-dsh-llm-deepseek/use-this-package/dynamic-configuration:
   en: 49290fc5647136b4
   zh: 96fa9ce0f9e83c13
-/deepseek-ai-dsh-llm-deepseek/use-this-package/provider-specific-request-fields:
-  en: f13f24b504dcfb50
-  zh: 69b0ed9e2adf3394
 /deepseek-ai-dsh-llm-deepseek/use-this-package/failures-and-recovery:
-  en: 56c2ec70abc19cd0
-  zh: 7c9d176f24893500
+  en: 913af785b90e3aad
+  zh: 9811a2654e46e940
 /deepseek-ai-dsh-llm-deepseek/understand-the-implementation:
   en: 1598ac8a8bb9b6bf
   zh: fdd089c5ae7722cd
@@ -51,11 +48,11 @@
   en: 584698e2c7686997
   zh: 2aed9608d5317d7b
 /deepseek-ai-dsh-llm-deepseek/understand-the-implementation/wire-flow:
-  en: 9477d8af3d762450
-  zh: 52a2967518509f94
+  en: d74199bbd456cc11
+  zh: 154b0cd7f27af7c3
 /deepseek-ai-dsh-llm-deepseek/further-exploration:
-  en: d3e6e29335c54987
-  zh: 3461235b93dfd697
+  en: 9fad0758f1ea9907
+  zh: 560a5762ea7c726b
 /deepseek-ai-dsh-llm-deepseek/model-experience:
   en: 215e7ba838619b7b
   zh: a311da3843709f90
@@ -64,7 +61,7 @@
   zh: 7abf968fc18bffcd
 /deepseek-ai-dsh-llm-deepseek/model-experience/deepseek-request/what-the-model-sees:
   en: 183ffdbbfd511182
-  zh: 0f15e0da9c4489c7
+  zh: a663b210d0859849
 /deepseek-ai-dsh-llm-deepseek/model-experience/deepseek-request/token-effect:
   en: 840b31f506916dcb
   zh: 6083c2bbbd85b4cb
@@ -87,5 +84,5 @@
   en: 232b09e9f33d9b1a
   zh: bf838648f8ba4e62
 /deepseek-ai-dsh-llm-deepseek/known-limitations-and-deferred-work/dev-note:
-  en: ddc6cf85ac5d9520
-  zh: d61436104184ce7c
+  en: 4152d89374cf1525
+  zh: db99fa870b14b597

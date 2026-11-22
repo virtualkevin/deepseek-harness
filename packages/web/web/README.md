@@ -33,7 +33,7 @@ Choose the service when a plugin or tool must search or fetch without hard-codin
 
 ### Minimal configuration
 
-Load the service and let a single mounted backend auto-select, or pin a provider id with `searchProvider`/`fetchProvider`. The environment variables `$DSH_WEB_SEARCH_PROVIDER` and `$DSH_WEB_FETCH_PROVIDER` feed the same fields and are not a separate priority chain. Both backends below register a fetch provider, so the example pins `fetchProvider: http`. The DeepSeek backend requires [`dsh-deepseek-auth`](../../account/deepseek-auth/README.md) for its credentials.
+Load the service and let a single mounted backend auto-select, or pin a provider id with `searchProvider`/`fetchProvider`. The environment variables `$DSH_WEB_SEARCH_PROVIDER` and `$DSH_WEB_FETCH_PROVIDER` feed the same fields and are not a separate priority chain. Both backends below register a fetch provider, so the example pins `fetchProvider: http`. The DeepSeek backend requires [`dsh-deepseek-auth`](../../credentials/deepseek-auth/README.md) for its credentials.
 
 ```yaml
 - name: '@deepseek-ai/dsh-web'
@@ -80,7 +80,7 @@ Each call resolves its provider at execution time, and registration or load orde
 | no id, no usable provider | `WEB_PROVIDER_UNAVAILABLE` |
 | no id, multiple usable providers | `WEB_PROVIDER_AMBIGUOUS` |
 
-The shipped `deepseek-official` and `deepseek-search-api` search ids select legacy Messages search and the direct Search API respectively. While no search provider is configured, a search prefers `deepseek-official` for a model request on the `deepseek-official` or `deepseek-account` model route, because DeepSeek makes no per-search charge for Messages search, and `deepseek-search-api` for a request on any other route and for a search that serves no model request. The preference is fixed in this package and applies only while the preferred provider is registered and usable, so a composition without these providers selects as the table states. The [base composition](../../bundle/base/cordis.patch.yml) mounts both and configures no search provider. A configured `searchProvider`, or `$DSH_WEB_SEARCH_PROVIDER`, applies to every route.
+The shipped `deepseek-official` and `deepseek-search-api` search ids select legacy Messages search and the direct Search API respectively. While no search provider is configured, a search prefers `deepseek-official` for a model request on the `deepseek-official` model route, because DeepSeek makes no per-search charge for Messages search, and `deepseek-search-api` for a request on any other route and for a search that serves no model request. The preference is fixed in this package and applies only while the preferred provider is registered and usable, so a composition without these providers selects as the table states. The [base composition](../../bundle/base/cordis.patch.yml) mounts both and configures no search provider. A configured `searchProvider`, or `$DSH_WEB_SEARCH_PROVIDER`, applies to every route.
 
 A provider's availability is a cheap local check — for example whether its API key is present — and never makes network calls, so selection stays fast and deterministic.
 

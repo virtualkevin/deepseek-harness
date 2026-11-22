@@ -66,7 +66,6 @@ export function apply(ctx) {
 `)
   const patch = join(temporary, 'test.patch.yml')
   await writeFile(patch, stringifyEntryYaml([
-    { id: 'session-telemetry-otel', disabled: true },
     { id: 'github-webhook-ingress', insert: [{ id: 'observe-packed-ingress', name: observer }] },
   ]))
   const child = execa(process.execPath, [

@@ -142,7 +142,7 @@ export async function verifySshHelper(argv: string[]): Promise<void> {
     const helperHash = await fileDigest(executable)
     const environment = {
       HOME: home, PATH: process.env.PATH, DSH_HOME: join(home, 'dsh'),
-      TSX_TSCONFIG_PATH: join(root, 'tsconfig.base.json'), DSH_TELEMETRY_DISABLED: '1',
+      TSX_TSCONFIG_PATH: join(root, 'tsconfig.base.json'),
       ...(values.backend === undefined ? {} : { DSH_EXPECT_SANDBOX_RUNNER: values.backend }),
     }
     // The concurrent consumers cover both PTC program formats; report-0 stays the per-call evidence.

@@ -21,6 +21,7 @@ import tempfile
 import threading
 import time
 import zipfile
+from bisect import bisect_left
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -252,7 +253,6 @@ def write_profile_patch(
             "id": "session-persistence-jsonl",
             "config": {"root": str(sessions), "compression": "none"},
         },
-        {"id": "session-telemetry-otel", "disabled": True},
         *patches,
     ], indent=2))
     return path
@@ -271,7 +271,6 @@ def write_advanced_profile_patch(
                 "persona": "You are a coding agent powered by the {{model}} model. Your working directory is {{cwd}}.",
             },
         },
-        {"id": "session-log-deepseek", "config": {"enabled": True}},
         *({"id": row_id, "disabled": True} for row_id in LEGACY_CUSTOM_DISABLED_ROWS),
         {"id": "tool-bash", "disabled": True},
         {"id": "tool-pwsh", "disabled": True},
@@ -321,6 +320,9 @@ class MockModelHandler(BaseHTTPRequestHandler):
             return
         content_length = int(self.headers.get("content-length", "0"))
         body = json.loads(self.rfile.read(content_length))
+        if "dsh_session_log" in body or "x-deepseek-harness-user-id" in self.headers:
+            self.send_error(400, "Model request included session log or tracking identity")
+            return
         self.requests.append(body)
         self.send_response(200)
         self.send_header("content-type", "text/event-stream")
@@ -991,7 +993,7 @@ def _smoke_sdk_authoring_cached(base_url: str, executable: Path, update_snapshot
                 provider="deepseek-official", model="smoke-model", cwd=str(root),
                 dsh_bin=str(executable), dsh_home=str(home), patches=(str(patch),),
                 api_key="sk-keyless-smoke", base_url=base_url,
-                env={"DSH_PERMISSION_MODE": "danger-full-access", "DSH_TELEMETRY_DISABLED": "1", "DSH_RESOURCE_CACHE": str(cache)},
+                env={"DSH_PERMISSION_MODE": "danger-full-access", "DSH_RESOURCE_CACHE": str(cache)},
                 request_timeout_seconds=60,
             ) as harness:
                 result = harness.run(AUTHORING_PROMPT, session_id="authoring", time_zone=SNAPSHOT_TIME_ZONE)
@@ -1061,7 +1063,7 @@ def smoke_sdk_plugin_manager(base_url: str, executable: Path, cache: Path) -> No
         }]))
         home = root / "home"
         environment = {"PATH": "", "DSH_RESOURCE_CACHE": str(cache),
-                       "DSH_PERMISSION_MODE": "workspace-write", "DSH_TELEMETRY_DISABLED": "1"}
+                       "DSH_PERMISSION_MODE": "workspace-write"}
         config = dict(provider="deepseek-official", model="smoke-model", cwd=str(root),
                       dsh_bin=str(executable), dsh_home=str(home), env=environment,
                       api_key="sk-keyless-smoke", base_url=base_url, request_timeout_seconds=60)
@@ -1173,7 +1175,7 @@ def smoke_sdk_office(executable: Path) -> None:
             patches=(str(patch),),
             api_key="sk-keyless-smoke",
             base_url="http://127.0.0.1:9",
-            env={"DSH_PERMISSION_MODE": "danger-full-access", "DSH_TELEMETRY_DISABLED": "1", "DSH_RESOURCE_CACHE": str(root / "cache")},
+            env={"DSH_PERMISSION_MODE": "danger-full-access", "DSH_RESOURCE_CACHE": str(root / "cache")},
             # Startup performs three serial Office operations with 120-second engine deadlines.
             initialize_timeout_seconds=480,
             request_timeout_seconds=480,
@@ -1295,7 +1297,6 @@ def smoke_sdk_live() -> None:
             dsh_home=str(dsh_home),
             env={
                 "DSH_PERMISSION_MODE": "danger-full-access",
-                "DSH_TELEMETRY_DISABLED": "1",
             },
             api_key=api_key,
             base_url=base_url,
@@ -1392,7 +1393,6 @@ def smoke_sdk_default(base_url: str) -> None:
             dsh_home=str(dsh_home),
             env={
                 "DSH_PERMISSION_MODE": "danger-full-access",
-                "DSH_TELEMETRY_DISABLED": "1",
             },
             api_key="sk-keyless-smoke",
             base_url=base_url,
@@ -1409,7 +1409,7 @@ def smoke_sdk_default(base_url: str) -> None:
         before = (dsh_home / "profiles/sdk/package.json").read_bytes()
         with DeepSeekHarness(
             provider="deepseek-official", model="smoke-model", cwd=str(root), dsh_home=str(dsh_home),
-            env={"DSH_PERMISSION_MODE": "danger-full-access", "DSH_TELEMETRY_DISABLED": "1", "PATH": "",
+            env={"DSH_PERMISSION_MODE": "danger-full-access", "PATH": "",
                  "DSH_PRIMARY_RUNTIME": "", "DSH_RESOURCE_CACHE": str(root / "empty-resource-cache")},
             api_key="sk-keyless-smoke", base_url=base_url, request_timeout_seconds=60,
         ) as harness:
@@ -1440,7 +1440,6 @@ def smoke_sdk_custom(base_url: str, executable: Path) -> None:
                 patches=(str(patch),),
                 env={
                     "DSH_PERMISSION_MODE": "danger-full-access",
-                    "DSH_TELEMETRY_DISABLED": "1",
                 },
                 api_key="sk-keyless-smoke",
                 base_url=base_url,
@@ -1533,8 +1532,6 @@ def smoke_sdk_dynamic_tools(base_url: str, executable: Path, update_snapshots: b
             {"id": "tool-bash", "disabled": True},
             {"id": "tool-pwsh", "disabled": True},
             {"id": "session-title-llm", "disabled": True},
-            # Export acknowledgements can change the request header sequence numbers.
-            {"id": "session-log-deepseek", "config": {"enabled": False}},
             {"insert": [{
                 "id": "dynamic-tools",
                 "name": (Path(__file__).resolve().parent / "fixtures/python-sdk-dynamic-tools.mjs").as_uri(),
@@ -1544,7 +1541,7 @@ def smoke_sdk_dynamic_tools(base_url: str, executable: Path, update_snapshots: b
             provider="deepseek-official", model="smoke-model", cwd=str(root),
             dsh_bin=str(executable), dsh_home=str(dsh_home), patches=(str(patch),),
             env={
-                "DSH_PERMISSION_MODE": "danger-full-access", "DSH_TELEMETRY_DISABLED": "1",
+                "DSH_PERMISSION_MODE": "danger-full-access",
                 "HOME": str(user_home), "USERPROFILE": str(user_home),
                 "DSH_AGENTS_HOME": str(user_home / ".agents"),
                 # Pin the tool baseline independently of optional resources in the host cache.
@@ -1587,7 +1584,6 @@ def smoke_sdk_fs_search(base_url: str, executable: Path) -> None:
             patches=(str(patch),),
             env={
                 "DSH_PERMISSION_MODE": "danger-full-access",
-                "DSH_TELEMETRY_DISABLED": "1",
             },
             api_key="sk-keyless-smoke",
             base_url=base_url,
@@ -1617,7 +1613,6 @@ def smoke_sdk_spawn_node(base_url: str, executable: Path) -> None:
             patches=(str(patch),),
             env={
                 "DSH_PERMISSION_MODE": "danger-full-access",
-                "DSH_TELEMETRY_DISABLED": "1",
             },
             api_key="sk-keyless-smoke",
             base_url=base_url,
@@ -1650,7 +1645,6 @@ def smoke_sdk_mcp(base_url: str, executable: Path | None) -> None:
             patches=(str(patch),),
             env={
                 "DSH_PERMISSION_MODE": "danger-full-access",
-                "DSH_TELEMETRY_DISABLED": "1",
             },
             api_key="sk-keyless-smoke",
             base_url=base_url,
@@ -1733,7 +1727,6 @@ def smoke_sdk_profile_plugin(base_url: str) -> None:
             dsh_home=str(dsh_home),
             env={
                 "DSH_PERMISSION_MODE": "danger-full-access",
-                "DSH_TELEMETRY_DISABLED": "1",
             },
             api_key="sk-keyless-smoke",
             base_url=base_url,
@@ -1802,7 +1795,6 @@ def smoke_sdk_snapshot_mode(
             patches=(str(patch), str(feedback_patch), str(creation_patch)),
             env={
                 "DSH_PERMISSION_MODE": "danger-full-access",
-                "DSH_TELEMETRY_DISABLED": "1",
             },
             api_key="sk-keyless-smoke",
             base_url=base_url,
@@ -1890,6 +1882,7 @@ def smoke_sdk_snapshot_mode(
             files, update_snapshots, ADVANCED_SNAPSHOT_DIRECTORY if mode == "native" else ADVANCED_SNAPSHOT_ROOT / "advanced-ptc",
             ADVANCED_SNAPSHOT_FILENAMES if mode == "native" else ("result.json", "session.v4.jsonl"),
             native_writer_output=True,
+            historical_session_uploads=True,
         )
 
 
@@ -1927,7 +1920,7 @@ def smoke_sdk_v3_resume(base_url: str, executable: Path) -> None:
             return DeepSeekHarness(
                 provider="deepseek-official", model="smoke-model", cwd=str(root),
                 dsh_bin=str(executable), dsh_home=str(root / "home"), patches=(str(patch),),
-                env={"DSH_TELEMETRY_DISABLED": "1"}, api_key="sk-keyless-smoke", base_url=base_url,
+                api_key="sk-keyless-smoke", base_url=base_url,
                 request_timeout_seconds=60,
             )
 
@@ -1971,7 +1964,6 @@ def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots
                 patches=(str(patch),),
                 env={
                     "DSH_PERMISSION_MODE": "danger-full-access",
-                    "DSH_TELEMETRY_DISABLED": "1",
                 },
                 api_key="sk-keyless-smoke",
                 base_url=base_url,
@@ -2084,6 +2076,7 @@ def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots
         compare_snapshot_files(
             files, update_snapshots, RESTART_SNAPSHOT_DIRECTORY, RESTART_SNAPSHOT_FILENAMES,
             native_writer_output=True,
+            historical_session_uploads=True,
         )
 
 
@@ -2100,7 +2093,6 @@ def smoke_sdk_scheduler_recovery(base_url: str, executable: Path, update_snapsho
         patch = write_profile_patch(root, "recovery.patch.yml", sessions, [
             {"id": "tool-todo", "disabled": False},
             {"id": "session-title-llm", "disabled": True},
-            {"id": "session-log-deepseek", "config": {"enabled": False}},
             {"insert": [{
                 "id": "scheduler-failure-fixture",
                 "name": (
@@ -2115,7 +2107,7 @@ def smoke_sdk_scheduler_recovery(base_url: str, executable: Path, update_snapsho
                 provider="deepseek-official", model="smoke-model", cwd=str(root),
                 dsh_bin=str(executable), dsh_home=str(dsh_home),
                 patches=(str(base_patch), str(patch)),
-                env={"DSH_PERMISSION_MODE": "danger-full-access", "DSH_TELEMETRY_DISABLED": "1"},
+                env={"DSH_PERMISSION_MODE": "danger-full-access"},
                 api_key="sk-keyless-smoke", base_url=base_url, request_timeout_seconds=60,
             )
 
@@ -2188,7 +2180,6 @@ def smoke_direct(base_url: str, executable: Path) -> None:
             **os.environ,
             "DSH_HOME": str(dsh_home),
             "DSH_PERMISSION_MODE": "danger-full-access",
-            "DSH_TELEMETRY_DISABLED": "1",
             "DEEPSEEK_API_KEY": "sk-keyless-smoke",
             "DEEPSEEK_BASE_URL": base_url,
         }
@@ -2791,10 +2782,6 @@ def build_snapshot_files(
         if record.get("type") == "command/run" and isinstance(data, dict):
             command_index += 1
             replacements.append((data["commandId"], f"{{{{command:{command_index}}}}}"))
-        if record.get("type") == "command/done" and isinstance(data, dict):
-            anonymous = re.search(r"Anonymous user: ([0-9a-f-]{36})", str(data.get("text")))
-            if anonymous is not None:
-                replacements.append((anonymous.group(1), "{{anonymous-user}}"))
     feedback_targets = dict.fromkeys(
         record["data"]["item"]["messageId"]
         for record in logs[SNAPSHOT_SESSION_ID]
@@ -3086,6 +3073,44 @@ def project_session_snapshot(records: list[dict[str, object]]) -> list[dict[str,
 
 SESSION_FORMAT_TOKEN = "{{sessionFormatVersion}}"
 NATIVE_DELIVERY_FORMAT_TOKEN = "{{sourceSessionFormatVersion}}"
+RETIRED_UPLOAD_EVENT = "session-log-deepseek/delivery-accepted"
+
+
+def rebase_historical_upload_references(record: dict, removed_rows: list[int]) -> dict:
+    """Map retained event references from an old smoke recording to the current writer."""
+    def retained_sequence(seq: int) -> int:
+        offset = bisect_left(removed_rows, seq)
+        if offset < len(removed_rows) and removed_rows[offset] == seq:
+            raise AssertionError(f"retained event refers to removed upload acknowledgement at {seq}")
+        return seq - offset
+
+    if "seq" in record:
+        record["seq"] = retained_sequence(record["seq"])
+    if "sourceEventSeqs" in record:
+        record["sourceEventSeqs"] = [retained_sequence(seq) for seq in record["sourceEventSeqs"]]
+    if record.get("type") == "session/title":
+        data = record["data"]
+        if "messageSeqs" in data:
+            data["messageSeqs"] = [retained_sequence(seq) for seq in data["messageSeqs"]]
+    if record.get("type") == "image/offload":
+        for target in record["data"]["targets"]:
+            target["seq"] = retained_sequence(target["seq"])
+    if record.get("type") == "command/done":
+        data = record["data"]
+        if isinstance(data.get("text"), str) and data["text"].startswith("Feedback recorded for session "):
+            data["text"] = data["text"].removesuffix("\nAnonymous user: {{anonymous-user}}.")
+    return record
+
+
+def project_historical_upload_snapshot(content: str) -> str:
+    """Compare legacy recording fixtures without changing their saved generations."""
+    header, *records = [json.loads(line) for line in content.splitlines() if line]
+    removed_rows = [index for index, event in enumerate(records) if event["type"] == RETIRED_UPLOAD_EVENT]
+    return render_jsonl([
+        header,
+        *(rebase_historical_upload_references(event, removed_rows)
+          for event in records if event["type"] != RETIRED_UPLOAD_EVENT),
+    ])
 
 
 def expand_snapshot_stream_member(member: object) -> list[dict[str, object]]:
@@ -3221,7 +3246,7 @@ def normalize_native_delivery_record(value: object, source_version: int) -> obje
                     "event": normalize_native_delivery_record(wrapper["event"], source_version),
                 }}
     data = value.get("data")
-    if value.get("type") != "session-log-deepseek/delivery-accepted" or not isinstance(data, dict):
+    if value.get("type") != RETIRED_UPLOAD_EVENT or not isinstance(data, dict):
         return value
     if data.get("sessionFormatVersion") != source_version:
         return value
@@ -3274,6 +3299,7 @@ def compare_snapshot_files(
     filenames: tuple[str, ...],
     *,
     native_writer_output: bool = False,
+    historical_session_uploads: bool = False,
 ) -> None:
     """Compare artifact roles and content, optionally matching each side's native delivery generation."""
     scenario = directory.name
@@ -3343,6 +3369,8 @@ def compare_snapshot_files(
         parsed = parse_snapshot_session_filename(name)
         expected_path = directory / name if parsed is None else selected_expected[parsed[0]]
         expected_text = expected_path.read_text(encoding="utf-8")
+        if historical_session_uploads and parsed is not None:
+            expected_text = project_historical_upload_snapshot(expected_text)
         compared_actual = normalize_snapshot_comparison_text(name, actual, actual_native_version)
         compared_expected = normalize_snapshot_comparison_text(expected_path.name, expected_text, expected_native_version)
         if compared_actual == compared_expected:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import runpy
 import subprocess
+import urllib.error
 import urllib.request
 from pathlib import Path
 from types import SimpleNamespace
@@ -257,6 +258,22 @@ def test_mock_model_serves_native_messages_events() -> None:
         assert events[0]["type"] == "message_start"
         assert events[-1] == {"type": "message_stop"}
         assert next(event["delta"]["text"] for event in events if event["type"] == "content_block_delta") == SMOKE["EXPECTED_TEXT"]
+
+
+@pytest.mark.parametrize("field, headers", [
+    ({"dsh_session_log": {"events": []}}, {}),
+    ({}, {"x-deepseek-harness-user-id": "test-identity"}),
+])
+def test_mock_model_rejects_telemetry(field: dict[str, object], headers: dict[str, str]) -> None:
+    with SMOKE["MockModel"]() as model:
+        body = {"model": "smoke-model", "messages": [{"role": "user", "content": "hello"}], **field}
+        request = urllib.request.Request(
+            model.url + "/v1/messages", data=json.dumps(body).encode(),
+            headers={"content-type": "application/json", **headers},
+        )
+        with pytest.raises(urllib.error.HTTPError, match="400.*tracking identity"):
+            urllib.request.urlopen(request)
+        assert not SMOKE["MockModelHandler"].requests
 
 
 @pytest.mark.parametrize("directory", ["/fixture/workspace", r"C:\fixture\workspace"])
@@ -585,6 +602,32 @@ def native_delivery_snapshot(version: int) -> dict[str, str]:
             event,
         ]),
     }
+
+
+def test_historical_uploads_are_removed_only_from_expected_sessions(tmp_path: Path) -> None:
+    name = SMOKE["snapshot_session_filename"](0, SESSION_FORMAT_VERSION)
+    legacy = SMOKE["render_jsonl"]([
+        {"type": "session", "version": SESSION_FORMAT_VERSION, "id": "s"},
+        {"type": "turn/start", "data": {"turn": 1}},
+        {"type": SMOKE["RETIRED_UPLOAD_EVENT"], "data": {"throughSeq": 0}},
+        {"type": "user/message", "data": {"content": []}},
+        {"type": "session/title", "data": {"messageSeqs": [2]}},
+        {"type": "command/done", "data": {"text": "Feedback recorded for session s\nAnonymous user: {{anonymous-user}}."}},
+    ])
+    fresh = SMOKE["render_jsonl"]([
+        {"type": "session", "version": SESSION_FORMAT_VERSION, "id": "s"},
+        {"type": "turn/start", "data": {"turn": 1}},
+        {"type": "user/message", "data": {"content": []}},
+        {"type": "session/title", "data": {"messageSeqs": [1]}},
+        {"type": "command/done", "data": {"text": "Feedback recorded for session s"}},
+    ])
+    path = tmp_path / name
+    path.write_text(legacy, encoding="utf-8")
+    compare = SMOKE["compare_snapshot_files"]
+    compare({name: fresh}, False, tmp_path, (name,), historical_session_uploads=True)
+    with pytest.raises(AssertionError, match="executable snapshot mismatch"):
+        compare({name: legacy}, False, tmp_path, (name,), historical_session_uploads=True)
+    assert path.read_text(encoding="utf-8") == legacy
 
 
 def test_native_writer_comparison_requires_opt_in_and_preserves_written_generations(tmp_path: Path) -> None:

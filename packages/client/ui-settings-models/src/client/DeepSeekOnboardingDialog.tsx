@@ -5,11 +5,10 @@
  * official DeepSeek route. The step reuses that page's credential editor in
  * the onboarding plugin's shared modal, so the key is entered once.
  */
-import type { TrackProductEvent } from '@deepseek-ai/dsh-client-product-analytics/client'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { ObservableSnapshot, SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { InjectFace, PropsRuntime, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelsSettingsState, ModelsSettingsStore } from './store.ts'
 import { onboardingReadiness } from './store.ts'
 import type { ModelsOperations } from './operations.ts'
@@ -22,8 +21,6 @@ import styles from './DeepSeekOnboardingDialog.module.css'
 
 /** Registration-side dependencies of {@link DeepSeekOnboardingDialog}. */
 export interface DeepSeekOnboardingInjected {
-  /** Desktop-only event collection. */
-  track?: TrackProductEvent
   hooks: {
     /** Shared Models-page join state, bound by the slot renderer. */
     models: SnapshotStore<ModelsSettingsState>
@@ -45,7 +42,7 @@ export interface DeepSeekOnboardingInjected {
 
 /** Slot owner props plus the feature's injected dependencies. */
 export type DeepSeekOnboardingDialogProps =
-  PropsRuntime<'settings.onboarding'> & PropsRenderSlots<'settings.models.sign-in'> & InjectFace<DeepSeekOnboardingInjected>
+  PropsRuntime<'settings.onboarding'> & InjectFace<DeepSeekOnboardingInjected>
 
 /* v8 ignore next 3 -- closed-union defaults only defend future source widening */
 function assertNever(_value: never): never {
@@ -59,8 +56,7 @@ function assertNever(_value: never): never {
  * @returns the onboarding modal or null when onboarding needs no intervention.
  */
 export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): ReactNode {
-  const { complete, controller, useModels, useAutomatic, operations, schema, t, renderSlot, explicit = false } = props
-  const [apiKey, setApiKey] = useState(explicit)
+  const { complete, controller, useModels, useAutomatic, operations, schema, t, explicit = false } = props
   const automaticOnMount = useAutomatic(value => value)
   const [automatic] = useState(automaticOnMount)
   const state = useModels(snapshot => snapshot)
@@ -112,7 +108,7 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
     void controller.load()
   }
 
-  const editor = (
+  return (
     <OnboardingModal title={t('onboardingTitle')}>
       <p className={styles.description}>{t('onboardingDescription')}</p>
       <div className={styles.editor}>
@@ -127,7 +123,6 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
           readOnly={false}
           hideTitle
           credentialOnly
-          onSubmitCredential={() => { props.track?.('api_key_save_click', {}) }}
           credentialRequired
           autoFocusCredential
           cancelLabelKey="onboardingLater"
@@ -138,5 +133,4 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
       </div>
     </OnboardingModal>
   )
-  return apiKey ? editor : renderSlot('settings.models.sign-in', { complete, useApiKey: () => { setApiKey(true) } }, { fallback: editor })
 }

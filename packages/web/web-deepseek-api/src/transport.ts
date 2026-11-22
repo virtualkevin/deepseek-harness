@@ -4,7 +4,7 @@
  * ([rationale](../../../../.agents/notes/implemented/feature/2026-10-15-deepseek-search-fetch-api.md)).
  * @module @deepseek-ai/dsh-web-deepseek-api/transport
  */
-import type { DeepSeekAuthCandidate, DeepSeekAuthKind, DeepSeekAuthorization } from '@deepseek-ai/dsh-deepseek-auth'
+import type { DeepSeekAuthCandidate, DeepSeekAuthorization } from '@deepseek-ai/dsh-deepseek-auth'
 import { WebError } from '@deepseek-ai/dsh-web'
 
 const USER_AGENT = 'deepseek-harness/0.0.1'
@@ -125,15 +125,13 @@ export async function dispatchDeepSeekWeb<T>(
   throwIfSearchAborted(signal)
   let response: Response
   /* jscpd:ignore-start */
-  const live = requestSignal(signal, auth.revoked)
   /**
-   * The failure of an interrupted request: the caller's cancellation first, then the withdrawal of the sent credential.
+   * Report cancellation from the caller or the interrupted HTTP request.
    * @param error - what the interrupted fetch or body read threw.
    * @returns the failure to report, or undefined when `error` is no interruption.
    */
   const interrupted = (error: unknown): WebError | undefined => {
     if (signal?.aborted === true) return searchAborted(signal, error)
-    if (auth.revoked?.aborted === true) return credentialWithdrawnError(auth.kind, error)
     return isAbortError(error) ? searchAborted(signal, error) : undefined
   }
   try {
@@ -148,7 +146,7 @@ export async function dispatchDeepSeekWeb<T>(
         'user-agent': USER_AGENT,
       },
       body: JSON.stringify(body),
-      ...live !== undefined ? { signal: live } : {},
+      ...signal !== undefined ? { signal } : {},
     })
   } catch (error: unknown) {
     throw interrupted(error) ?? searchEndpointError(
@@ -179,15 +177,6 @@ export async function dispatchDeepSeekWeb<T>(
       // malformed/non-JSON error body (normal for gateway 5xx/429s) can only
       // cost a richer provider message, never the real error.
     }
-    if (status === 401) {
-      // Invalidation can cancel this Session; finish reading the HTTP failure before it does. A cancelled read still
-      // invalidates the credential the status rejected.
-      try { await auth.reject?.() }
-      catch (_invalidationFailed) { /* The HTTP rejection stays the reported failure when the invalidation itself fails. */ }
-      // The account service released its credential only for its inference origin, so the endpoint is not what the
-      // user must change.
-      if (auth.kind === 'account') throw aborted ?? accountRejectedError(message)
-    }
     if (aborted !== undefined) throw aborted
     throw searchEndpointError(guidance, endpoint, message)
   }
@@ -205,45 +194,6 @@ export async function dispatchDeepSeekWeb<T>(
       : `DeepSeek returned an unprocessable response body: ${String(error)}`
     throw searchEndpointError(guidance, endpoint, message, error)
   }
-}
-
-/**
- * The signal one request runs under: the caller's cancellation and the withdrawal of the credential it carries.
- * @param signal - caller cancellation, when the caller supplies one.
- * @param revoked - withdrawal of the sent credential, when its authorization offers one.
- * @returns the composed signal, or undefined when neither exists.
- */
-function requestSignal(signal: AbortSignal | undefined, revoked: AbortSignal | undefined): AbortSignal | undefined {
-  if (signal === undefined || revoked === undefined) return signal ?? revoked
-  return AbortSignal.any([signal, revoked])
-}
-
-/**
- * Report a request that ended because the owner withdrew the credential it carried. The caller did not cancel, so the
- * failure is the provider's.
- * @param kind - kind of the withdrawn credential.
- * @param cause - what the interrupted fetch or body read threw.
- * @returns the provider failure, with sign-in guidance for an account credential.
- */
-function credentialWithdrawnError(kind: DeepSeekAuthKind, cause: unknown): WebError {
-  return new WebError(
-    kind === 'account'
-      ? 'The DeepSeek account signed out before this web request finished. Guide the user to sign in to DeepSeek again;'
-        + ' the endpoint does not need changing.'
-      : 'The credential this web request carried was withdrawn before the request finished. Guide the user to check that'
-        + ' credential on the Models page.',
-    'WEB_PROVIDER_ERROR',
-    { cause },
-  )
-}
-
-/** Replace endpoint guidance with sign-in guidance when DeepSeek rejects the account token. */
-function accountRejectedError(message: string): WebError {
-  return new WebError(
-    `${message}\n\nDeepSeek rejected the account sign-in used for this web request. `
-    + 'Guide the user to sign in to DeepSeek again; the endpoint does not need changing.',
-    'WEB_PROVIDER_ERROR',
-  )
 }
 
 /**

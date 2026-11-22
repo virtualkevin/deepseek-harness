@@ -3,11 +3,12 @@ scenario: web-search-account-billing
 profile: headless
 composition: web-search-account-billing
 recording: authored
+sessionFormat:
+  version: 4
+  coverage: [retired-tools]
 header:
   class: web-search-account-billing
   pin: true
-  toolSchemasSource: text-turn
+  toolSchemasSource: web-fetch
 environment:
-  # No DeepSeek API key, and a fixed DeepSeek origin for the account token.
   DEEPSEEK_API_KEY: ''
-  DEEPSEEK_BASE_URL: https://api.deepseek.com/anthropic

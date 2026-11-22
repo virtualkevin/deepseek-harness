@@ -6,7 +6,7 @@
 
 来源：[`packages/credentials/credentials/src/index.ts`](../../packages/credentials/credentials/src/index.ts)
 
-DeepSeek 账号授权是其中一条记录；其登录、请求凭据和 Platform 会话见 [account.zh.md](account.zh.md)。
+DeepSeek 模型适配器和 Web 适配器使用 [dsh-deepseek-auth](../../packages/credentials/deepseek-auth) 解析请求目标所需的 API 密钥。
 
 ## 标识
 
@@ -255,6 +255,50 @@ Host service backing the generated `ctx.remote.credentials` namespace. It carrie
 ```
 
 Source: [`packages/api/settings-controller/src/credentials.ts`](../../packages/api/settings-controller/src/credentials.ts)
+
+<a id="ctxdeepseekauth--deepseekauth"></a>
+
+### `ctx.deepseekAuth` — `DeepSeekAuth`
+
+`ctx.deepseekAuth`: resolves the DeepSeek API key for a request.
+
+```ts cordis-catalog
+/**
+ * Connect the API-key deployment a model route's settings name. Call it from within `ctx.effect()`.
+ * @param kind - the kind the plugin's route bills.
+ * @param route - provider route the plugin registers; {@link routeKind} answers `kind` for it while connected.
+ * @param connection - reads the plugin's current settings; a throw marks the kind unresolved for that operation.
+ * @returns the disposer removing the connection.
+ * @throws {DeepSeekAuthError} code `DUPLICATE_CONNECTION` when the kind is already connected.
+ */
+connect(kind: DeepSeekAuthKind, route: string, connection: () => DeepSeekAuthConnection): () => void
+
+/**
+ * The kind that bills a conversation on one model route.
+ * @param route - provider route of a model request; undefined names none.
+ * @returns the kind connected under that route, or undefined for a route no plugin connected.
+ */
+routeKind(route: string | undefined): DeepSeekAuthKind | undefined
+
+/**
+ * Resolve the connection and destination without reading the API key.
+ * @param request - the request.
+ * @returns one candidate or connection failure, or an empty array when the destination cannot receive the key.
+ */
+candidates(request: DeepSeekAuthRequest): (DeepSeekAuthCandidate | DeepSeekAuthUnresolved)[]
+
+/**
+ * Release the API key bound to the request's destination.
+ * @param request - the request.
+ * @param signal - cancellation for the lookups.
+ * @returns the authorization, or undefined when the destination cannot receive the key or no key is available.
+ * @throws {DeepSeekAuthError} code `UNRESOLVED_CONNECTION` for an unresolved connection, `INVALID_CREDENTIAL` for an
+ *   unusable API key; store failures propagate.
+ */
+async authorize(request: DeepSeekAuthRequest, signal?: AbortSignal): Promise<DeepSeekAuthorization | undefined>
+```
+
+Source: [`packages/credentials/deepseek-auth/src/index.ts`](../../packages/credentials/deepseek-auth/src/index.ts)
 
 <a id="authorization-events"></a>
 

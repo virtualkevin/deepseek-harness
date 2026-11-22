@@ -43,9 +43,6 @@ export const VIEWER_ENDPOINT_CLASSES = {
   'session/canOpenWorkspacePath': 'reader-global-read', // the page asks whether a path can be opened
   'session/modelCatalog': 'reader-global-read', // the page reads the model catalog
   'pluginEvents/follow': 'reader-global-read', // the page follows the plugin graph; the Host sends a non-owner schema defaults, never configured values
-  'productAnalytics/enabled': 'reader-global-read', // the page asks whether this host accepts analytics
-  'productAnalytics/report': 'reader-global-read', // the page reports its own product events
-  'productAnalytics/watchPolicy': 'reader-global-read', // the page follows the analytics policy
   'speech/cancelPreparation': 'reader-global-read', // the page cancels its recognizer preparation
   'speech/catalog': 'reader-global-read', // the page reads recorder providers and limits
   'speech/follow': 'reader-global-read', // the page follows recognizer readiness
@@ -103,22 +100,9 @@ export const VIEWER_ENDPOINT_CLASSES = {
   // No reader role names these, so the conservative class is owner-only. A share's method policy
   // decides whether one installed plugin's method reaches its viewers; this table only decides what
   // the core share roles grant.
-  'account/cancelSignIn': 'owner-only', // owner account and sign-in; the served page never reads it
-  'account/getBalance': 'owner-only', // owner account and sign-in; the served page never reads it
-  'account/getProfile': 'owner-only', // owner account and sign-in; the served page never reads it
-  'account/getState': 'owner-only', // owner account and sign-in; the served page never reads it
-  'account/getNotificationContent': 'owner-only', // owner account and sign-in; the served page never reads it
-  'account/getNotifications': 'owner-only', // owner account and sign-in; the served page never reads it
-  'account/reportNotificationEvent': 'owner-only', // owner account and sign-in; the served page never reads it
-  'account/hasRunningAccountTasks': 'owner-only', // owner account and sign-in; the served page never reads it
-  'account/signOut': 'owner-only', // owner account and sign-in; the served page never reads it
-  'account/startSignIn': 'owner-only', // owner account and sign-in; the served page never reads it
-  'account/watch': 'owner-only', // owner account and sign-in; the served page never reads it
-  'account/watchExpiry': 'owner-only', // owner account and sign-in; the served page never reads it
   'commands/execute': 'owner-only', // owner executes a slash command
   'job/kill': 'owner-only', // owner background jobs
   'session/create': 'owner-only', // owner creates a Session
-  'session/initializeDefaultModel': 'owner-only', // owner initializes a Session default model
   'session/openWorkspacePath': 'owner-only', // owner opens a Workspace path
   'session/search': 'owner-only', // owner searches across Sessions
   'session/selectModel': 'owner-only', // owner selects a Session model

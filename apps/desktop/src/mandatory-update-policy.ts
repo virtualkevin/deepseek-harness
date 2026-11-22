@@ -1,8 +1,7 @@
 /** Mandatory-update policy, independent of local business traffic and updater artifacts. */
 
 import { valid } from 'semver'
-import type { AccountClientMetadata } from '@deepseek-ai/dsh-deepseek-account'
-import { platformClientHeaders } from '@deepseek-ai/dsh-deepseek-account/client-metadata'
+import { desktopClientHeaders, type DesktopClientMetadata } from './client-metadata.ts'
 
 /** Installed release identity; no field is supplied by a renderer. */
 export interface DesktopPolicyIdentity {
@@ -150,7 +149,7 @@ export class DesktopMandatoryUpdatePolicy {
     private readonly identity: DesktopPolicyIdentity,
     private readonly publish: (state: DesktopPolicyState) => void,
     private readonly request: typeof fetch = fetch,
-    private readonly client: () => AccountClientMetadata,
+    private readonly client: () => DesktopClientMetadata,
     private readonly random: () => number = Math.random,
   ) {
     if (valid(this.client().version) === null || valid(identity.bundledDshVersion) === null
@@ -160,7 +159,7 @@ export class DesktopMandatoryUpdatePolicy {
   /** Platform headers for one check; the calling UI's language and UTC offset are read now. */
   private requestHeaders(channel: DesktopPolicyIdentity['channel']): Record<string, string> {
     return {
-      ...platformClientHeaders(this.identity.platform, this.client()),
+      ...desktopClientHeaders(this.identity.platform, this.client()),
       'x-client-arch': this.identity.arch, 'x-client-update-channel': channel,
       'x-client-bundled-dsh-version': this.identity.bundledDshVersion,
     }

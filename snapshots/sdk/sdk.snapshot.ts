@@ -559,6 +559,60 @@ function records(log: string): JsonObject[] {
     .map(line => JSON.parse(line) as JsonObject)
 }
 
+const retiredUploadEvent = 'session-log-deepseek/delivery-accepted'
+
+/** Project validated historical Session output to the runtime without upload acknowledgements. */
+function historicalUploadComparisonRecords(log: string): JsonObject[] {
+  const rows = records(log)
+  const removedSequences = rows.slice(1).flatMap((row, index) => row.type === retiredUploadEvent ? [index] : [])
+  if (removedSequences.length === 0) return rows
+  let retiredIdentityOrdinal: number | undefined
+  const retainedSequence = (value: unknown): number => {
+    if (typeof value !== 'number' || removedSequences.includes(value)) {
+      throw new Error(`invalid retained SDK snapshot event reference: ${String(value)}`)
+    }
+    return value - removedSequences.filter(removed => removed < value).length
+  }
+  return rows.filter(row => row.type !== retiredUploadEvent).map((row) => {
+    if (Array.isArray(row.sourceEventSeqs)) row.sourceEventSeqs = row.sourceEventSeqs.map(retainedSequence)
+    if (row.surfaceOp !== undefined && row.surfaceOp !== 'append') {
+      const operation = row.surfaceOp as JsonObject
+      operation.startSeq = retainedSequence(operation.startSeq)
+      operation.endSeq = retainedSequence(operation.endSeq)
+    }
+    const data = row.data as JsonObject | undefined
+    if (data === undefined) return row
+    if (row.type === 'command/done') {
+      if (data.sourceEventSeq !== undefined) data.sourceEventSeq = retainedSequence(data.sourceEventSeq)
+      if (typeof data.text === 'string' && data.text.startsWith('Feedback recorded for session ')) {
+        const acknowledgement = /\nAnonymous user: \{\{id:(\d+)\}\}\.$/u.exec(data.text)
+        if (acknowledgement !== null) {
+          retiredIdentityOrdinal = Number(acknowledgement[1])
+          data.text = data.text.slice(0, acknowledgement.index)
+        }
+      }
+    } else if (row.type === 'feedback/message-put' && retiredIdentityOrdinal !== undefined) {
+      const item = data.item as JsonObject
+      const ordinal = typeof item.version === 'string' ? /^\{\{id:(\d+)\}\}$/u.exec(item.version) : null
+      if (ordinal !== null && Number(ordinal[1]) > retiredIdentityOrdinal) item.version = `{{id:${Number(ordinal[1]) - 1}}}`
+    } else if (row.type === 'developer/message' && data.headerSeq !== undefined) {
+      data.headerSeq = retainedSequence(data.headerSeq)
+    } else if ((row.type === 'session/title' || row.type === 'session/title-llm-request') && Array.isArray(data.messageSeqs)) {
+      data.messageSeqs = data.messageSeqs.map(retainedSequence)
+    } else if (row.type === 'compaction/summary' || row.type === 'compaction/prune') {
+      const range = data.shadowedRange as JsonObject | undefined
+      if (range !== undefined) {
+        range.start = retainedSequence(range.start)
+        range.end = retainedSequence(range.end)
+      }
+      if (Array.isArray(data.shadowedSeqs)) data.shadowedSeqs = data.shadowedSeqs.map(retainedSequence)
+    } else if (row.type === 'image/offload' && Array.isArray(data.targets)) {
+      for (const target of data.targets as JsonObject[]) target.seq = retainedSequence(target.seq)
+    }
+    return row
+  })
+}
+
 function notificationComparisonRecords(log: string, sourceLogs: readonly string[]): JsonObject[] {
   const versions = sourceLogs.map((source, index) => sessionHeaderVersion(source, `notification Session ${index}`))
   expect(new Set(versions).size, 'wire golden Session roles share one native writer generation').toBe(1)
@@ -741,14 +795,13 @@ const legacySdkCompositions = new Set([
   'dynamic-tool-updates',
   'image',
   'ptc',
-  'sdk-account-provider-signout',
   'sdk-default',
   'sdk-dsh-sdk-diagnostic',
   'sdk-dsh-sdk-dynamic-route',
   'sdk-minimal',
   'sdk-serial-created',
   'sdk-team-session-mode',
-  'sdk-upload',
+  'sdk-feedback',
   'session-title',
   'session-title-stability',
   'subagent-activation-limit',
@@ -857,7 +910,6 @@ async function runScenario(scenario: CorpusScenario): Promise<{
     DSH_SNAPSHOT: mode,
     DSH_SNAPSHOT_PROVIDER: route.provider,
     DSH_SNAPSHOT_MODEL: route.model,
-    DSH_TELEMETRY_DISABLED: '1',
     DSH_AGENTS_HOME: join(cwd, '.agents'),
     NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
     ...parentFixture === undefined ? {} : {
@@ -1229,6 +1281,18 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
   })
 
   for (const scenario of sdkScenarios) {
+    if (scenario.name === 'account-provider-signout') {
+      it('restores the retained DeepSeek account sign-out history', async () => {
+        const [fixture] = await fixtureFiles(scenario)
+        const original = await readFile(fixture!, 'utf8')
+        const events = parseSessionLog(original)
+        expect(events.findLast(event => event.type === 'turn/end')).toMatchObject({
+          data: { reason: { kind: 'aborted', reason: { kind: 'hook', reason: 'deepseek-account/signed-out' } } },
+        })
+        expect(await readFile(fixture!, 'utf8')).toBe(original)
+      })
+      continue
+    }
     const scenarioTest = recording
       && (scenario.manifest.recording === 'authored' || scenario.manifest.sessionFormat !== undefined)
       ? it.skip
@@ -1732,7 +1796,7 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
       const expectedContext = contextOfContents(expectedContents)
       const actualSnapshots = normalizeSessionSnapshots(ordered.map(log => log.content), actualContext, { nativeWriterOutput: true })
       const expectedSnapshots = normalizeSessionSnapshots(expectedContents, expectedContext, { nativeWriterOutput: true })
-      expect(actualSnapshots.map(records), `${scenario.name}: sessions`).toEqual(expectedSnapshots.map(records))
+      expect(actualSnapshots.map(records), `${scenario.name}: sessions`).toEqual(expectedSnapshots.map(historicalUploadComparisonRecords))
       await verifyHeaders(scenario, ordered, actualContext, assertions.dshSdkChild?.agentConfig)
 
       // Genuine SDK protocol cases retain their secondary wire projections.

@@ -60,7 +60,7 @@
       "path": "../../interaction/permission-presets"
     },
     {
-      "path": "../../account/deepseek-auth"
+      "path": "../../credentials/deepseek-auth"
     },
     {
       "path": "../../util/time"
